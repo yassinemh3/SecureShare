@@ -3,6 +3,7 @@ package com.secureshare.securefiles.file;
 import com.secureshare.securefiles.file.FileEntity;
 import com.secureshare.securefiles.file.FileRepository;
 import jakarta.annotation.PostConstruct;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ public class FileStorageService {
 
     private final FileRepository fileRepository;
     private final Path uploadDir = Paths.get("uploads");
+    private final SharedFileRepository sharedFileRepository;
 
     @Value("${app.encryption.secret-key}")
     private String encryptionKey;
@@ -81,7 +83,10 @@ public class FileStorageService {
         cipher.init(Cipher.DECRYPT_MODE, getSecretKey());
         return cipher.doFinal(encryptedData);
     }
+    @Transactional
     public void deleteFile(FileEntity file) {
+        // First delete all shares referencing this file
+        sharedFileRepository.deleteByFile(file);
         Path filePath = uploadDir.resolve(file.getStoredFilename());
         try {
             Files.deleteIfExists(filePath);

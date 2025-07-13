@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Login from "./auth/Login";
 import Register from "./auth/Register";
 import Home from "./pages/Home";
-import ShareAccess from "./components/ShareAccess"
+import ShareAccess from "./pages/ShareAccess"
 
 const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(

@@ -61,15 +61,20 @@ public class FileController {
         // Get authenticated user email
         String currentUserEmail = SecurityContextHolder.getContext().getAuthentication().getName();
 
-        // 🛡️ Allow only uploader or admin to delete
+        // Allow only uploader or admin to delete
         if (!file.getUploadedBy().equals(currentUserEmail) &&
-                !SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
+                !SecurityContextHolder.getContext().getAuthentication()
+                        .getAuthorities().stream()
                         .anyMatch(auth -> auth.getAuthority().equals("ROLE_ADMIN"))) {
-            throw new AccessDeniedException("You are not authorized to delete this file.");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Not authorized");
         }
 
-        fileService.deleteFile(file); // Delete metadata and physical file if needed
-        return ResponseEntity.noContent().build();
+        try {
+            fileService.deleteFile(file);
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body("Error deleting file: " + e.getMessage());
+        }
     }
-
 }

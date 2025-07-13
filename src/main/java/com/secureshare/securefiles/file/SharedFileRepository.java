@@ -6,4 +6,5 @@ import java.util.Optional;
 
 public interface SharedFileRepository extends JpaRepository<SharedFile, Long> {
     Optional<SharedFile> findByToken(String token);
+    void deleteByFile(FileEntity file);
 }

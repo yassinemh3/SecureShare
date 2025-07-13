@@ -6,7 +6,25 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.util.StringUtils;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+
+import com.secureshare.securefiles.file.FileEntity;
+import com.secureshare.securefiles.file.SharedFile;
+import com.secureshare.securefiles.file.FileSharingService;
+import com.secureshare.securefiles.file.FileStorageService;
+
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @RestController
 @RequestMapping("/api/v1/share")
 @RequiredArgsConstructor
@@ -29,21 +47,35 @@ public class FileSharingController {
     public ResponseEntity<?> accessFile(
             @PathVariable String token,
             @RequestParam(required = false) String password
-    ) throws Exception {
-        return sharingService.getValidSharedFile(token, password)
-                .map(shared -> {
-                    try {
-                        FileEntity file = shared.getFile();
-                        byte[] content = fileStorageService.getFileContent(file);
-                        return ResponseEntity.ok()
-                                .contentType(MediaType.parseMediaType(file.getContentType()))
-                                .header(HttpHeaders.CONTENT_DISPOSITION,
-                                        "attachment; filename=\"" + file.getOriginalFilename() + "\"")
-                                .body(new ByteArrayResource(content));
-                    } catch (Exception e) {
-                        return ResponseEntity.internalServerError().body("File read error");
-                    }
-                })
-                .orElse(ResponseEntity.status(403).body("Invalid or expired token"));
+    ) {
+        try {
+            // Validate token and get shared file
+            SharedFile shared = sharingService.getValidSharedFile(token, password)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid or expired token"));
+
+            // Get file content
+            FileEntity file = shared.getFile();
+            byte[] content = fileStorageService.getFileContent(file);
+
+            // Return file with proper headers
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(
+                            StringUtils.hasText(file.getContentType()) ?
+                                    file.getContentType() :
+                                    "application/octet-stream")) // Fallback content type
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            "attachment; filename=\"" + encodeFilename(file.getOriginalFilename()) + "\"")
+                    .body(new ByteArrayResource(content));
+
+        } catch (ResponseStatusException e) {
+            return ResponseEntity.status(e.getStatusCode()).body(e.getReason());
+        } catch (Exception e) {
+            log.error("File access error for token: {}", token, e);
+            return ResponseEntity.internalServerError().body("File access error");
+        }
+    }
+    private String encodeFilename(String filename) {
+        return URLEncoder.encode(filename, StandardCharsets.UTF_8)
+                .replaceAll("\\+", "%20");
     }
 }

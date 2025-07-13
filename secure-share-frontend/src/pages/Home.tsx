@@ -123,16 +123,21 @@ const Home: React.FC<HomeProps> = ({ onLogout, token }) => {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
+       if (res.status === 403) {
+          setMessage('You are not authorized to delete this file');
+          return;
+       }
+       if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            setMessage(errorData.message || 'Failed to delete file');
+            return;
+          }
 
-      if (res.ok) {
-        setMessage('File deleted.');
-        await fetchFiles();
-      } else {
-        setMessage('Failed to delete.');
-      }
-    } catch {
-      setMessage('Delete error.');
-    }
+          setMessage('File deleted successfully');
+          fetchFiles(); // Refresh the list
+        } catch (error) {
+          setMessage('Error deleting file: ' + (error as Error).message);
+        }
   };
 
 
