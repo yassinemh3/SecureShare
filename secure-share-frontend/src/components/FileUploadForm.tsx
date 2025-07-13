@@ -1,34 +1,46 @@
-import React, { ChangeEvent } from 'react';
+"use client"
 
-interface FileUploadFormProps {
-  onFileChange: (e: ChangeEvent<HTMLInputElement>) => void;
-  onUpload: () => void;
-  selectedFile: File | null;
+import { useCallback, useState } from "react"
+import { useDropzone } from "react-dropzone"
+import { Button } from "@/components/ui/button"
+import { UploadIcon } from "lucide-react"
+
+const FileUploadForm = ({ onFileChange, onUpload, selectedFile }: FileUploadFormProps) => {
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    onFileChange({ target: { files: acceptedFiles } } as any)
+  }, [])
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    maxFiles: 1
+  })
+
+  return (
+    <div {...getRootProps()} className={`border-2 border-dashed rounded-lg p-6 text-center ${
+      isDragActive ? "border-primary bg-primary/10" : "border-muted-foreground/30"
+    }`}>
+      <input {...getInputProps()} />
+      <div className="flex flex-col items-center gap-2">
+        <UploadIcon className="h-10 w-10 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">
+          {isDragActive ? "Drop the file here" : "Drag & drop files here, or click to select"}
+        </p>
+        {selectedFile && (
+          <p className="text-sm font-medium mt-2">{selectedFile.name}</p>
+        )}
+      </div>
+      <Button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          onUpload()
+        }}
+        disabled={!selectedFile}
+        className="mt-4 w-full"
+      >
+        Upload File
+      </Button>
+    </div>
+  )
 }
-
-const FileUploadForm: React.FC<FileUploadFormProps> = ({
-  onFileChange,
-  onUpload,
-  selectedFile
-}) => (
-  <div className="mb-4">
-    <input
-      type="file"
-      onChange={onFileChange}
-      className="w-full px-3 py-2 border rounded-md"
-    />
-    <button
-      onClick={onUpload}
-      disabled={!selectedFile}
-      className={`mt-2 w-full py-2 rounded transition ${
-        selectedFile
-          ? 'bg-blue-600 text-white hover:bg-blue-700'
-          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-      }`}
-    >
-      Upload File
-    </button>
-  </div>
-);
-
 export default FileUploadForm;

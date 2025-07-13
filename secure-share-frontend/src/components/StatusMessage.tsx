@@ -1,18 +1,17 @@
-import React from 'react';
+"use client"
 
-interface StatusMessageProps {
-  message: string;
-  type?: 'error' | 'success';
+import { Alert, AlertDescription } from "@/components/ui/alert"
+
+export const StatusMessage = ({ message, type = "error" }: StatusMessageProps) => {
+  if (!message) return null
+  
+  return (
+    <Alert variant={type === "error" ? "destructive" : "default"}>
+      <AlertDescription>
+        {message}
+      </AlertDescription>
+    </Alert>
+  )
 }
-
-const StatusMessage: React.FC<StatusMessageProps> = ({ message, type = 'error' }) => (
-  message ? (
-    <p className={`text-center text-sm mb-4 ${
-      type === 'error' ? 'text-red-600' : 'text-green-600'
-    }`}>
-      {message}
-    </p>
-  ) : null
-);
 
 export default StatusMessage;
