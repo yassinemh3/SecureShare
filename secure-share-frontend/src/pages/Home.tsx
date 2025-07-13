@@ -150,7 +150,7 @@ const handleShare = async (fileId: number, data: { password?: string; expiryMinu
     const res = await fetch(`http://localhost:8080/api/v1/share/${fileId}?${params.toString()}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`  // Using the correct token prop
+        'Authorization': `Bearer ${token}`
       }
     });
 
@@ -159,17 +159,13 @@ const handleShare = async (fileId: number, data: { password?: string; expiryMinu
       throw new Error(errorText || 'Failed to generate share link');
     }
 
-    // Get the plain text token from response
-    const shareToken = await res.text();
-
-    // Construct the full shareable URL
-     return `${window.location.origin}/share/access/${token}`;
+    const shareLink = await res.text(); // Backend returns full URL
+    return shareLink; // Use it directly
   } catch (error) {
     setMessage('Error generating share link: ' + (error as Error).message);
     throw error;
   }
 };
-
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center py-10">

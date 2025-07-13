@@ -40,7 +40,7 @@ public class FileSharingController {
             @RequestParam(defaultValue = "60") long expiryMinutes
     ) {
         String token = sharingService.generateShareLink(fileId, password, expiryMinutes);
-        return ResponseEntity.ok("http://localhost:8080/api/v1/share/access/" + token);
+        return ResponseEntity.ok("http://localhost:5173/share/access/" + token);
     }
 
     @GetMapping("/access/{token}")
@@ -49,6 +49,11 @@ public class FileSharingController {
             @RequestParam(required = false) String password
     ) {
         try {
+            // Validate token format (simple check for UUID format)
+            if (token.split("-").length != 5) {
+                log.warn("Invalid token format: {}", token);
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid token format");
+            }
             // Validate token and get shared file
             SharedFile shared = sharingService.getValidSharedFile(token, password)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid or expired token"));

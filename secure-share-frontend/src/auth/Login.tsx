@@ -1,6 +1,6 @@
 import React, { useState, ChangeEvent, FormEvent } from 'react';
 import axiosInstance from '../api/axios';
-
+import { Link } from 'react-router-dom';
 interface AuthProps {
   onAuthSuccess: (token: string) => void;
 }
@@ -91,6 +91,12 @@ const Login: React.FC<AuthProps> = ({ onAuthSuccess }) => {
         >
           Login
         </button>
+        <div className="mt-4 text-center">
+          <span className="text-gray-600">Don't have an account?</span>{' '}
+          <Link to="/register" className="text-blue-600 hover:underline font-semibold">
+            Register
+          </Link>
+        </div>
       </form>
     </div>
   );

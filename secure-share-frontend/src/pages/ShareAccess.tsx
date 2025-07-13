@@ -8,38 +8,51 @@ const ShareAccess = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleAccessFile = async () => {
-    setIsLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (password) params.append('password', password);
+ const handleAccessFile = async () => {
+   setIsLoading(true);
+   setError(''); // Clear previous errors
+   try {
+     const params = new URLSearchParams();
+     if (password) params.append('password', password);
 
-      const res = await fetch(`http://localhost:8080/api/v1/share/access/${token}?${params.toString()}`);
+    // Verify the token format before making the request
+     if (!token || token.split('-').length !== 5) {
+       throw new Error('Invalid share token format. Please check the share link.');
+     }
 
-      if (!res.ok) {
-        throw new Error(await res.text());
-      }
+     const res = await fetch(`http://localhost:8080/api/v1/share/access/${token}?${params.toString()}`);
 
-      const blob = await res.blob();
-      const contentDisposition = res.headers.get('Content-Disposition');
-      const filename = contentDisposition?.split('filename=')[1] || 'downloaded_file';
+     if (!res.ok) {
+       const errorText = await res.text();
+       console.error('Access file error:', {
+         status: res.status,
+         errorText,
+         token,
+         hasPassword: !!password
+       });
+       throw new Error(errorText || 'Failed to access file');
+     }
 
-      // Create download link
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      a.remove();
+     const blob = await res.blob();
+     const contentDisposition = res.headers.get('Content-Disposition');
+     const filename = contentDisposition?.split('filename=')[1] || 'downloaded_file';
 
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+     // Create download link
+     const url = window.URL.createObjectURL(blob);
+     const a = document.createElement('a');
+     a.href = url;
+     a.download = filename;
+     document.body.appendChild(a);
+     a.click();
+     window.URL.revokeObjectURL(url);
+     a.remove();
+
+   } catch (err) {
+     setError((err as Error).message);
+   } finally {
+     setIsLoading(false);
+   }
+ };
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center">
