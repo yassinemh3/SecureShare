@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.access.AccessDeniedException;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/files")
@@ -21,6 +22,12 @@ public class FileController {
     public ResponseEntity<FileEntity> upload(@RequestParam("file") MultipartFile file) throws Exception {
         FileEntity saved = fileService.saveFile(file);
         return ResponseEntity.ok(saved);
+    }
+
+    @GetMapping
+    public ResponseEntity<List<FileEntity>> listUserFiles() {
+        List<FileEntity> files = fileService.getUserFiles();
+        return ResponseEntity.ok(files);
     }
 
     @GetMapping("/{id}/download")

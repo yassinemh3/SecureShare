@@ -11,6 +11,7 @@ import javax.crypto.spec.SecretKeySpec;
 import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
 import org.springframework.beans.factory.annotation.Value;
+import java.util.List;
 
 import java.io.*;
 import java.nio.file.*;
@@ -65,6 +66,11 @@ public class FileStorageService {
     public FileEntity getFileMetadata(Long id) {
         return fileRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("File not found"));
+    }
+
+    public List<FileEntity> getUserFiles() {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return fileRepository.findAllByUploadedBy(username);
     }
 
     public byte[] getFileContent(FileEntity entity) throws Exception {
