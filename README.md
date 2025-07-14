@@ -93,9 +93,9 @@ public class User {
 
 | Method | Endpoint          | Description              |
 |--------|-------------------|--------------------------|
-| POST   | `/upload`         | Upload a file            |
-| GET    | `/files/{id}`     | Download file            |
-| DELETE | `/files/{id}`     | Delete (if owner/admin)  |
+| POST   | `/api/v1/files/upload`         | Upload a file            |
+| GET    | `/api/v1/files/{id}`     | Download file            |
+| DELETE | `/api/v1/files/{id}`     | Delete (if owner/admin)  |
 
 ---
 
@@ -116,6 +116,18 @@ https://yourdomain.com/share/access/{token}
 ```
 
 ---
+## 📸 Screenshots
+
+### 🔐 Login Page
+
+![Login Page](./assets/login.png)
+
+---
+
+### 🏠 Home Page
+
+![Home Page](./assets/home.png)
+
 
 ## 🛡️ Security Notes
 
