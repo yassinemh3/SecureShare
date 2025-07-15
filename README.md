@@ -24,6 +24,7 @@
 - 🗃️ **Encrypted File Storage (AES)**
 - 🔗 **Token-based File Sharing with Optional Password**
 - 👮‍♂️ **Role-based Access Control**
+- 🔗 **QR Code Sharing**
 
 ---
 
@@ -116,6 +117,26 @@ https://yourdomain.com/share/access/{token}
 ```
 
 ---
+## 🔗 QR Code Sharing
+
+SecureShare now supports **QR code-based file sharing**! 🚀
+
+After generating a shareable link for your file, a **QR code** will also be displayed. This makes it easy to:
+
+- Share files via mobile devices
+- Print the QR code for physical distribution
+- Use in presentations or offline scenarios
+
+### 🛠️ How It Works
+
+- Backend provides a public endpoint:  
+  `GET /api/v1/share/qr/{token}`  
+  Returns a PNG QR code image for the share token.
+
+- Frontend fetches and displays the QR code next to the share link.
+
+---
+
 ## 📸 Screenshots
 
 ### 🔐 Login Page
@@ -127,6 +148,13 @@ https://yourdomain.com/share/access/{token}
 ### 🏠 Home Page
 
 ![Home Page](./assets/home.png)
+
+---
+
+### Share Link and QR Code
+
+![Sharepage](./assets/Sharepage.png)
+
 
 
 ## 🛡️ Security Notes
