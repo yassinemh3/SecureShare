@@ -11,7 +11,7 @@
 - User authentication (JWT)
 - Encrypted file storage using AES
 - File upload/download/delete functionality
-- Secure shareable download links (with optional password and expiry)
+- Secure shareable download links and a QR Code (with optional password and expiry)
 - Role-based access (Admin/User)
 
 ---
