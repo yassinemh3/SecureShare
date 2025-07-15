@@ -20,6 +20,7 @@ const FileItem: React.FC<FileItemProps> = ({ file, onDownload, onDelete, onShare
   const [expiryMinutes, setExpiryMinutes] = useState("");
   const [shareLink, setShareLink] = useState("");
   const [showShareDialog, setShowShareDialog] = useState(false);
+  const [qrCodeUrl, setQrCodeUrl] = useState("");
 
   const handleShare = async () => {
     try {
@@ -30,6 +31,11 @@ const FileItem: React.FC<FileItemProps> = ({ file, onDownload, onDelete, onShare
 
       const link = await onShare(file.id, data);
       setShareLink(link);
+
+      // Extract token from the link
+      const token = link.split("/").pop();
+      const qrUrl = `http://localhost:8080/api/v1/share/qr/${token}`; // Update port if different
+      setQrCodeUrl(qrUrl);
     } catch (error) {
       console.error("Failed to generate share link:", error);
     }
@@ -106,6 +112,16 @@ const FileItem: React.FC<FileItemProps> = ({ file, onDownload, onDelete, onShare
                       {password ? "Password protected" : "No password"} |{" "}
                       {expiryMinutes ? `Expires in ${expiryMinutes} minutes` : "No expiry"}
                     </p>
+                      {/* QR Code Display */}
+                      {qrCodeUrl && (
+                        <div className="flex justify-center">
+                          <img
+                            src={qrCodeUrl}
+                            alt="QR Code"
+                            className="w-40 h-40 border rounded shadow"
+                          />
+                        </div>
+                      )}
                   </CardContent>
                 </Card>
               )}

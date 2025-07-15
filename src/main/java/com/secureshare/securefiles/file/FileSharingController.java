@@ -13,10 +13,12 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.util.StringUtils;
+import java.util.Base64;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
+import com.secureshare.securefiles.util.QrCodeUtil;
 import com.secureshare.securefiles.file.FileEntity;
 import com.secureshare.securefiles.file.SharedFile;
 import com.secureshare.securefiles.file.FileSharingService;
@@ -79,6 +81,16 @@ public class FileSharingController {
             return ResponseEntity.internalServerError().body("File access error");
         }
     }
+    @GetMapping("/qr/{token}")
+    public ResponseEntity<ByteArrayResource> getQrCodeForToken(@PathVariable String token) throws Exception {
+        String url = "http://localhost:5173/share/access/" + token;
+        String base64 = QrCodeUtil.generateBase64QrCode(url, 300, 300);
+        byte[] decoded = Base64.getDecoder().decode(base64);
+        return ResponseEntity.ok()
+                .contentType(MediaType.IMAGE_PNG)
+                .body(new ByteArrayResource(decoded));
+    }
+
     private String encodeFilename(String filename) {
         return URLEncoder.encode(filename, StandardCharsets.UTF_8)
                 .replaceAll("\\+", "%20");
