@@ -1,5 +1,12 @@
-import React, { useState, ChangeEvent, FormEvent } from 'react';
-import axiosInstance from '../api/axios';
+import React, { useState, ChangeEvent, FormEvent } from "react";
+import axiosInstance from "../api/axios";
+
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Toaster } from "@/components/ui/sonner"
+import { toast } from 'sonner';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AuthResponse {
   access_token: string;
@@ -19,10 +26,10 @@ interface AuthProps {
 
 const Register: React.FC<AuthProps> = ({ onAuthSuccess }) => {
   const [form, setForm] = useState<RegisterForm>({
-    firstname: '',
-    lastname: '',
-    email: '',
-    password: '',
+    firstname: "",
+    lastname: "",
+    email: "",
+    password: "",
   });
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -32,95 +39,81 @@ const Register: React.FC<AuthProps> = ({ onAuthSuccess }) => {
   const handleRegister = async (e: FormEvent) => {
     e.preventDefault();
     try {
-      const res = await axiosInstance.post<AuthResponse>('/auth/register', form);
+      const res = await axiosInstance.post<AuthResponse>("/auth/register", form);
       onAuthSuccess(res.data.access_token);
     } catch (err) {
       console.error(err);
-      alert('Registration failed');
+      toast("Registration failed");
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100 px-4">
-      <form
-        onSubmit={handleRegister}
-        className="w-full max-w-md rounded-lg bg-white p-8 shadow-md"
-      >
-        <h2 className="mb-6 text-center text-2xl font-bold text-gray-800">
-          Create an Account
-        </h2>
+    <div className="flex items-center justify-center min-h-screen bg-gray-100 px-4">
+    <Toaster position="top-center" richColors />
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle className="text-center text-2xl">Create an Account</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleRegister} className="space-y-4">
+            <div>
+              <Label htmlFor="firstname">First Name</Label>
+              <Input
+                type="text"
+                name="firstname"
+                id="firstname"
+                placeholder="John"
+                value={form.firstname}
+                onChange={handleChange}
+                required
+              />
+            </div>
 
-        <div className="mb-4">
-          <label htmlFor="firstname" className="block text-sm font-medium text-gray-700">
-            First Name
-          </label>
-          <input
-            type="text"
-            name="firstname"
-            id="firstname"
-            placeholder="John"
-            value={form.firstname}
-            onChange={handleChange}
-            required
-            className="mt-1 w-full rounded-md border border-gray-300 p-2 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          />
-        </div>
+            <div>
+              <Label htmlFor="lastname">Last Name</Label>
+              <Input
+                type="text"
+                name="lastname"
+                id="lastname"
+                placeholder="Doe"
+                value={form.lastname}
+                onChange={handleChange}
+                required
+              />
+            </div>
 
-        <div className="mb-4">
-          <label htmlFor="lastname" className="block text-sm font-medium text-gray-700">
-            Last Name
-          </label>
-          <input
-            type="text"
-            name="lastname"
-            id="lastname"
-            placeholder="Doe"
-            value={form.lastname}
-            onChange={handleChange}
-            required
-            className="mt-1 w-full rounded-md border border-gray-300 p-2 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          />
-        </div>
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                type="email"
+                name="email"
+                id="email"
+                placeholder="you@example.com"
+                value={form.email}
+                onChange={handleChange}
+                required
+              />
+            </div>
 
-        <div className="mb-4">
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-            Email
-          </label>
-          <input
-            type="email"
-            name="email"
-            id="email"
-            placeholder="you@example.com"
-            value={form.email}
-            onChange={handleChange}
-            required
-            className="mt-1 w-full rounded-md border border-gray-300 p-2 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          />
-        </div>
+            <div>
+              <Label htmlFor="password">Password</Label>
+              <Input
+                type="password"
+                name="password"
+                id="password"
+                placeholder="••••••••"
+                value={form.password}
+                onChange={handleChange}
+                required
+              />
+            </div>
 
-        <div className="mb-6">
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-            Password
-          </label>
-          <input
-            type="password"
-            name="password"
-            id="password"
-            placeholder="••••••••"
-            value={form.password}
-            onChange={handleChange}
-            required
-            className="mt-1 w-full rounded-md border border-gray-300 p-2 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          />
-        </div>
-
-        <button
-          type="submit"
-          className="w-full rounded-md bg-indigo-600 px-4 py-2 font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-        >
-          Register
-        </button>
-      </form>
+            <Button type="submit" className="w-full">
+              Register
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 };

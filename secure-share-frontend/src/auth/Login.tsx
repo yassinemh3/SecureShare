@@ -1,6 +1,13 @@
-import React, { useState, ChangeEvent, FormEvent } from 'react';
-import axiosInstance from '../api/axios';
-import { Link } from 'react-router-dom';
+import React, { useState, ChangeEvent, FormEvent } from "react";
+import { Link } from "react-router-dom";
+import axiosInstance from "../api/axios";
+import { Toaster } from "@/components/ui/sonner"
+import { toast } from 'sonner';
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
 interface AuthProps {
   onAuthSuccess: (token: string) => void;
 }
@@ -16,88 +23,68 @@ interface LoginForm {
 }
 
 const Login: React.FC<AuthProps> = ({ onAuthSuccess }) => {
-  const [form, setForm] = useState<LoginForm>({
-    email: '',
-    password: '',
-  });
+  const [form, setForm] = useState<LoginForm>({ email: "", password: "" });
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-    const handleLogin = async (e: FormEvent) => {
-      e.preventDefault();
-      try {
-        const res = await axiosInstance.post<AuthResponse>(
-          '/auth/authenticate',
-          form
-        );
-        console.log('Received token:', res.data.access_token); // Debug log
-        onAuthSuccess(res.data.access_token);
-      } catch (err) {
-        console.error(err);
-        alert('Login failed');
-      }
-    };
+  const handleLogin = async (e: FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await axiosInstance.post<AuthResponse>("/auth/authenticate", form);
+      onAuthSuccess(res.data.access_token);
+    } catch (err) {
+      console.error(err);
+      toast("Login failed");
+    }
+  };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <form
-        onSubmit={handleLogin}
-        className="bg-white shadow-lg rounded-lg p-8 w-full max-w-md"
-      >
-        <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">
-          Login to SecureFile
-        </h2>
-        <div className="mb-4">
-          <label
-            htmlFor="email"
-            className="block text-gray-700 font-semibold mb-2"
-          >
-            Email
-          </label>
-          <input
-            type="email"
-            name="email"
-            id="email"
-            placeholder="you@example.com"
-            value={form.email}
-            onChange={handleChange}
-            required
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-        <div className="mb-6">
-          <label
-            htmlFor="password"
-            className="block text-gray-700 font-semibold mb-2"
-          >
-            Password
-          </label>
-          <input
-            type="password"
-            name="password"
-            id="password"
-            placeholder="••••••••"
-            value={form.password}
-            onChange={handleChange}
-            required
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-        <button
-          type="submit"
-          className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors font-semibold"
-        >
-          Login
-        </button>
-        <div className="mt-4 text-center">
-          <span className="text-gray-600">Don't have an account?</span>{' '}
-          <Link to="/register" className="text-blue-600 hover:underline font-semibold">
-            Register
-          </Link>
-        </div>
-      </form>
+    <div className="flex items-center justify-center min-h-screen bg-gray-100 px-4">
+     <Toaster position="top-center" richColors />
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle className="text-center text-2xl">Login to SecureFile</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                type="email"
+                id="email"
+                name="email"
+                placeholder="you@example.com"
+                value={form.email}
+                onChange={handleChange}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="password">Password</Label>
+              <Input
+                type="password"
+                id="password"
+                name="password"
+                placeholder="••••••••"
+                value={form.password}
+                onChange={handleChange}
+                required
+              />
+            </div>
+            <Button type="submit" className="w-full">
+              Login
+            </Button>
+            <div className="text-center text-sm text-gray-600">
+              Don&apos;t have an account?{" "}
+              <Link to="/register" className="text-blue-600 hover:underline font-semibold">
+                Register
+              </Link>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 };

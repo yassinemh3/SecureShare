@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import FileUploadForm from '../components/FileUploadForm';
 import FileList from '../components/FileList';
 import StatusMessage from '../components/StatusMessage';
+import { Toaster } from "@/components/ui/sonner"
 
 interface HomeProps {
   onLogout: () => void;
@@ -195,7 +196,7 @@ const handleShare = async (fileId: number, data: { password?: string; expiryMinu
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center py-10">
       <div className="bg-white shadow-md rounded-lg p-6 w-full max-w-2xl">
-
+       <Toaster position="top-center" richColors />
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-lg font-medium">Hi, {username}</h2>
           <button
