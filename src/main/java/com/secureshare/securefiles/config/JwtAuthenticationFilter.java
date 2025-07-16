@@ -35,10 +35,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
       @NonNull HttpServletRequest request,
       @NonNull HttpServletResponse response,
       @NonNull FilterChain filterChain) throws ServletException, IOException {
-    if (request.getServletPath().contains("/api/v1/auth")) {
-      filterChain.doFilter(request, response);
-      return;
-    }
+      // Skip JWT check for public auth endpoints
+      String requestPath = request.getServletPath();
+      if (requestPath.equals("/api/v1/auth/register") ||
+              requestPath.equals("/api/v1/auth/authenticate") ||
+              requestPath.equals("/api/v1/auth/refresh-token")) {
+        filterChain.doFilter(request, response);
+        return;
+      }
     final String authHeader = request.getHeader("Authorization");
     final String jwt;
     final String userEmail;

@@ -31,7 +31,9 @@ import static org.springframework.security.config.http.SessionCreationPolicy.STA
 public class SecurityConfiguration {
 
         private static final String[] WHITE_LIST_URL = {
-                "/api/v1/auth/**",
+                "/api/v1/auth/register",
+                "/api/v1/auth/authenticate",
+                "/api/v1/auth/refresh-token",
                 "/api/v1/share/access/**",
                 "/v2/api-docs",
                 "/v3/api-docs",
@@ -55,8 +57,8 @@ public class SecurityConfiguration {
                 http
                         .cors(cors -> cors.configurationSource(corsConfigurationSource())) // Enable CORS
                         .csrf(AbstractHttpConfigurer::disable)
-                        .authorizeHttpRequests(req -> req.requestMatchers(WHITE_LIST_URL)
-                                .permitAll()
+                        .authorizeHttpRequests(req -> req.requestMatchers(WHITE_LIST_URL).permitAll()
+                                .requestMatchers("/api/v1/auth/me").hasAnyRole(ADMIN.name(), MANAGER.name(), USER.name())
                                 .requestMatchers("/api/v1/files/**").authenticated()
                                 .requestMatchers("/api/v1/management/**")
                                 .hasAnyRole(ADMIN.name(), MANAGER.name())

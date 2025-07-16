@@ -19,6 +19,7 @@ const Home: React.FC<HomeProps> = ({ onLogout, token }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [message, setMessage] = useState('');
   const [files, setFiles] = useState<FileMetadata[]>([]);
+  const [username, setUsername] = useState('');
 
   const fetchFiles = async () => {
     try {
@@ -38,7 +39,31 @@ const Home: React.FC<HomeProps> = ({ onLogout, token }) => {
     }
   };
 
-  useEffect(() => { fetchFiles(); }, []);
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      try {
+        const res = await fetch('http://localhost:8080/api/v1/auth/me', {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          setUsername(data.firstname || data.email || 'User');
+        } else {
+          setUsername('User');
+        }
+      } catch {
+        setUsername('User');
+      }
+
+      fetchFiles(); // existing call
+    };
+
+    fetchUserInfo();
+  }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSelectedFile(e.target.files?.[0] || null);
@@ -170,6 +195,17 @@ const handleShare = async (fileId: number, data: { password?: string; expiryMinu
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col items-center py-10">
       <div className="bg-white shadow-md rounded-lg p-6 w-full max-w-2xl">
+
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-lg font-medium">Hi, {username}</h2>
+          <button
+            onClick={onLogout}
+            className="bg-red-500 text-white py-1 px-4 rounded hover:bg-red-600 transition"
+          >
+            Logout
+          </button>
+        </div>
+
         <h1 className="text-2xl font-semibold text-center mb-4">SecureShare Dashboard</h1>
 
         <FileUploadForm
@@ -178,9 +214,10 @@ const handleShare = async (fileId: number, data: { password?: string; expiryMinu
           selectedFile={selectedFile}
         />
 
-        <StatusMessage message={message} type={
-          message.includes('success') || message.includes('deleted') ? 'success' : 'error'
-        } />
+        <StatusMessage
+          message={message}
+          type={message.includes('success') || message.includes('deleted') ? 'success' : 'error'}
+        />
 
         <FileList
           files={files}
@@ -188,13 +225,6 @@ const handleShare = async (fileId: number, data: { password?: string; expiryMinu
           onDelete={handleDelete}
           onShare={handleShare}
         />
-
-        <button
-          onClick={onLogout}
-          className="mt-6 w-full bg-gray-500 text-white py-2 rounded hover:bg-gray-600 transition"
-        >
-          Logout
-        </button>
       </div>
     </div>
   );
