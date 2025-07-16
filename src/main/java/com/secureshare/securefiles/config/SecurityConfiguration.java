@@ -55,30 +55,36 @@ public class SecurityConfiguration {
         @Bean
         public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
                 http
-                        .cors(cors -> cors.configurationSource(corsConfigurationSource())) // Enable CORS
+                        .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                         .csrf(AbstractHttpConfigurer::disable)
-                        .authorizeHttpRequests(req -> req.requestMatchers(WHITE_LIST_URL).permitAll()
-                                .requestMatchers("/api/v1/auth/me").hasAnyRole(ADMIN.name(), MANAGER.name(), USER.name())
-                                .requestMatchers("/api/v1/files/**").authenticated()
-                                .requestMatchers("/api/v1/management/**")
-                                .hasAnyRole(ADMIN.name(), MANAGER.name())
-                                .requestMatchers(GET, "/api/v1/management/**")
-                                .hasAnyAuthority(ADMIN_READ.name(), MANAGER_READ.name())
-                                .requestMatchers(POST, "/api/v1/management/**")
-                                .hasAnyAuthority(ADMIN_CREATE.name(), MANAGER_CREATE.name())
-                                .requestMatchers(PUT, "/api/v1/management/**")
-                                .hasAnyAuthority(ADMIN_UPDATE.name(), MANAGER_UPDATE.name())
-                                .requestMatchers(DELETE, "/api/v1/management/**")
-                                .hasAnyAuthority(ADMIN_DELETE.name(), MANAGER_DELETE.name())
-                                .anyRequest()
-                                .authenticated())
+                        .authorizeHttpRequests(req -> req
+                                // Public endpoints
+                                .requestMatchers(WHITE_LIST_URL).permitAll()
+
+                                // Auth endpoints
+                                .requestMatchers("/api/v1/auth/me").authenticated()
+                                .requestMatchers("/api/v1/auth/logout").authenticated()
+
+                                // File operations
+                                .requestMatchers(GET, "/api/v1/files/**").hasAuthority("file:download")
+                                .requestMatchers(POST, "/api/v1/files/**").hasAuthority("file:upload")
+                                .requestMatchers(DELETE, "/api/v1/files/**").hasAuthority("file:delete")
+
+                                // Admin endpoints
+                                .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+
+                                // All other requests
+                                .anyRequest().authenticated()
+                        )
                         .sessionManagement(session -> session.sessionCreationPolicy(STATELESS))
                         .authenticationProvider(authenticationProvider)
                         .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
-                        .logout(logout -> logout.logoutUrl("/api/v1/auth/logout")
+                        .logout(logout -> logout
+                                .logoutUrl("/api/v1/auth/logout")
                                 .addLogoutHandler(logoutHandler)
                                 .logoutSuccessHandler((request, response, authentication) ->
-                                        SecurityContextHolder.clearContext()));
+                                        SecurityContextHolder.clearContext())
+                        );
 
                 return http.build();
         }
@@ -86,10 +92,12 @@ public class SecurityConfiguration {
         @Bean
         CorsConfigurationSource corsConfigurationSource() {
                 CorsConfiguration configuration = new CorsConfiguration();
-                configuration.setAllowedOrigins(List.of("http://localhost:5173")); // Your frontend URL
-                configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-                configuration.setAllowedHeaders(List.of("*"));
+                configuration.setAllowedOrigins(List.of("http://localhost:5173"));
+                configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+                configuration.setAllowedHeaders(List.of("Authorization", "Cache-Control", "Content-Type"));
+                configuration.setExposedHeaders(List.of("Authorization"));
                 configuration.setAllowCredentials(true);
+                configuration.setMaxAge(3600L);
 
                 UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
                 source.registerCorsConfiguration("/**", configuration);

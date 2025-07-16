@@ -6,15 +6,17 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum Permission {
 
+    // File-related permissions
+    FILE_UPLOAD("file:upload"),
+    FILE_DOWNLOAD("file:download"),
+    FILE_DELETE("file:delete"),
+    FILE_SHARE("file:share"),
+
+    ADMIN_DASHBOARD("admin:dashboard"),
     ADMIN_READ("admin:read"),
     ADMIN_UPDATE("admin:update"),
     ADMIN_CREATE("admin:create"),
     ADMIN_DELETE("admin:delete"),
-    MANAGER_READ("management:read"),
-    MANAGER_UPDATE("management:update"),
-    MANAGER_CREATE("management:create"),
-    MANAGER_DELETE("management:delete")
-
     ;
 
     @Getter
