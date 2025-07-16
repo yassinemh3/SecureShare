@@ -1,6 +1,6 @@
 import React from 'react';
 import FileItem from './FileItem';
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card";
 
 interface FileListProps {
   files: Array<{
@@ -14,14 +14,14 @@ interface FileListProps {
 
 export const FileList = ({ files, onDownload, onDelete, onShare }: FileListProps) => {
   return (
-    <Card>
-      <CardContent className="p-6">
-        <h2 className="text-xl font-semibold mb-4">Your Files</h2>
-        <div className="space-y-4">
-          {files.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">No files uploaded yet</p>
-          ) : (
-            files.map(file => (
+    <Card className="mt-6">
+      <CardContent className="p-6 space-y-4">
+        <h2 className="text-xl font-semibold">Your Files</h2>
+        {files.length === 0 ? (
+          <p className="text-muted-foreground text-center py-8">No files uploaded yet</p>
+        ) : (
+          <ul className="space-y-3">
+            {files.map(file => (
               <FileItem
                 key={file.id}
                 file={file}
@@ -29,12 +29,12 @@ export const FileList = ({ files, onDownload, onDelete, onShare }: FileListProps
                 onDelete={onDelete}
                 onShare={onShare}
               />
-            ))
-          )}
-        </div>
+            ))}
+          </ul>
+        )}
       </CardContent>
     </Card>
-  )
-}
+  );
+};
 
 export default FileList;

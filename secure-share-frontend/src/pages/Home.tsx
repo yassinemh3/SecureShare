@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import FileUploadForm from '../components/FileUploadForm';
 import FileList from '../components/FileList';
 import StatusMessage from '../components/StatusMessage';
-import { Toaster } from "@/components/ui/sonner"
+import { Toaster } from "@/components/ui/sonner";
 
 interface HomeProps {
   onLogout: () => void;
@@ -45,9 +45,7 @@ const Home: React.FC<HomeProps> = ({ onLogout, token }) => {
       try {
         const res = await fetch('http://localhost:8080/api/v1/auth/me', {
           method: 'GET',
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
+          headers: { Authorization: `Bearer ${token}` }
         });
 
         if (res.ok) {
@@ -60,7 +58,7 @@ const Home: React.FC<HomeProps> = ({ onLogout, token }) => {
         setUsername('User');
       }
 
-      fetchFiles(); // existing call
+      fetchFiles();
     };
 
     fetchUserInfo();
@@ -70,56 +68,37 @@ const Home: React.FC<HomeProps> = ({ onLogout, token }) => {
     setSelectedFile(e.target.files?.[0] || null);
   };
 
-    const handleUpload = async () => {
-      if (!selectedFile) {
-        setMessage('Please select a file.');
-        return;
+  const handleUpload = async () => {
+    if (!selectedFile) {
+      setMessage('Please select a file.');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', selectedFile);
+
+    try {
+      const res = await fetch('http://localhost:8080/api/v1/files/upload', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData
+      });
+
+      const responseData = await res.json().catch(async () => ({
+        message: await res.text()
+      }));
+
+      if (res.ok) {
+        setMessage(responseData.message || 'Upload successful!');
+        setSelectedFile(null);
+        await fetchFiles();
+      } else {
+        setMessage(`Upload failed: ${responseData.message || 'Unknown error'}`);
       }
-
-      if (!token) {
-        setMessage('Authentication token is missing.');
-        return;
-      }
-
-      const formData = new FormData();
-      formData.append('file', selectedFile);
-
-      try {
-        const res = await fetch('http://localhost:8080/api/v1/files/upload', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          },
-          body: formData
-        });
-
-        if (res.ok) {
-          // Try to parse as JSON, fall back to text if needed
-          let responseData;
-          try {
-            responseData = await res.json();
-          } catch (e) {
-            responseData = { message: await res.text() };
-          }
-
-          setMessage(responseData.message || 'Upload successful!');
-          setSelectedFile(null);
-          await fetchFiles(); // Refresh list
-        } else {
-          // Handle error responses
-          let errorMessage;
-          try {
-            const errorData = await res.json();
-            errorMessage = errorData.message || res.statusText;
-          } catch {
-            errorMessage = await res.text();
-          }
-          setMessage(`Upload failed: ${errorMessage || 'Unknown error'}`);
-        }
-      } catch (err) {
-        setMessage('Upload error: ' + (err as Error).message);
-      }
-    };
+    } catch (err) {
+      setMessage('Upload error: ' + (err as Error).message);
+    }
+  };
 
   const handleDownload = async (fileId: number, filename: string) => {
     try {
@@ -149,84 +128,86 @@ const Home: React.FC<HomeProps> = ({ onLogout, token }) => {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
-       if (res.status === 403) {
-          setMessage('You are not authorized to delete this file');
-          return;
-       }
-       if (!res.ok) {
-            const errorData = await res.json().catch(() => ({}));
-            setMessage(errorData.message || 'Failed to delete file');
-            return;
-          }
 
-          setMessage('File deleted successfully');
-          fetchFiles(); // Refresh the list
-        } catch (error) {
-          setMessage('Error deleting file: ' + (error as Error).message);
-        }
+      if (res.status === 403) {
+        setMessage('You are not authorized to delete this file.');
+        return;
+      }
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        setMessage(errorData.message || 'Failed to delete file.');
+        return;
+      }
+
+      setMessage('File deleted successfully.');
+      fetchFiles();
+    } catch (error) {
+      setMessage('Error deleting file: ' + (error as Error).message);
+    }
   };
 
+  const handleShare = async (fileId: number, data: { password?: string; expiryMinutes?: number }): Promise<string> => {
+    try {
+      const params = new URLSearchParams();
+      if (data.password) params.append('password', data.password);
+      if (data.expiryMinutes) params.append('expiryMinutes', data.expiryMinutes.toString());
 
-const handleShare = async (fileId: number, data: { password?: string; expiryMinutes?: number }): Promise<string> => {
-  try {
-    const params = new URLSearchParams();
-    if (data.password) params.append('password', data.password);
-    if (data.expiryMinutes) params.append('expiryMinutes', data.expiryMinutes.toString());
+      const res = await fetch(`http://localhost:8080/api/v1/share/${fileId}?${params.toString()}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
 
-    const res = await fetch(`http://localhost:8080/api/v1/share/${fileId}?${params.toString()}`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || 'Failed to generate share link');
       }
-    });
 
-    if (!res.ok) {
-      const errorText = await res.text();
-      throw new Error(errorText || 'Failed to generate share link');
+      return await res.text();
+    } catch (error) {
+      setMessage('Error generating share link: ' + (error as Error).message);
+      throw error;
     }
-
-    const shareLink = await res.text(); // Backend returns full URL
-    return shareLink; // Use it directly
-  } catch (error) {
-    setMessage('Error generating share link: ' + (error as Error).message);
-    throw error;
-  }
-};
+  };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col items-center py-10">
-      <div className="bg-white shadow-md rounded-lg p-6 w-full max-w-2xl">
-       <Toaster position="top-center" richColors />
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-lg font-medium">Hi, {username}</h2>
-          <button
-            onClick={onLogout}
-            className="bg-red-500 text-white py-1 px-4 rounded hover:bg-red-600 transition"
-          >
-            Logout
-          </button>
+    <div className="min-h-screen bg-gray-50">
+      {/* Sticky Header */}
+      <header className="sticky top-0 z-10 bg-white shadow p-4 flex justify-between items-center">
+        <h2 className="text-lg font-semibold">Hi, {username}</h2>
+        <button
+          onClick={onLogout}
+          className="bg-red-500 text-white py-1 px-4 rounded hover:bg-red-600 transition"
+        >
+          Logout
+        </button>
+      </header>
+
+      <main className="flex flex-col items-center px-4 pt-6 pb-12">
+        <div className="w-full max-w-2xl bg-white shadow-md rounded-lg p-6 space-y-6">
+          <Toaster position="top-center" richColors />
+
+          <h1 className="text-2xl font-bold text-center">SecureShare Dashboard</h1>
+
+          <FileUploadForm
+            onFileChange={handleFileChange}
+            onUpload={handleUpload}
+            selectedFile={selectedFile}
+          />
+
+          <StatusMessage
+            message={message}
+            type={message.includes('success') || message.includes('deleted') ? 'success' : 'error'}
+          />
+
+          <FileList
+            files={files}
+            onDownload={handleDownload}
+            onDelete={handleDelete}
+            onShare={handleShare}
+          />
         </div>
-
-        <h1 className="text-2xl font-semibold text-center mb-4">SecureShare Dashboard</h1>
-
-        <FileUploadForm
-          onFileChange={handleFileChange}
-          onUpload={handleUpload}
-          selectedFile={selectedFile}
-        />
-
-        <StatusMessage
-          message={message}
-          type={message.includes('success') || message.includes('deleted') ? 'success' : 'error'}
-        />
-
-        <FileList
-          files={files}
-          onDownload={handleDownload}
-          onDelete={handleDelete}
-          onShare={handleShare}
-        />
-      </div>
+      </main>
     </div>
   );
 };

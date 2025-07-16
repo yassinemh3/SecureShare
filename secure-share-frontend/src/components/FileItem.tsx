@@ -1,10 +1,25 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { toast } from 'sonner';
+import { toast } from "sonner";
+
+import {
+  Share1Icon,
+  DownloadIcon,
+  TrashIcon,
+  Link1Icon,
+  LockClosedIcon,
+  ClockIcon,
+} from "@radix-ui/react-icons";
 
 interface FileItemProps {
   file: {
@@ -29,74 +44,77 @@ const FileItem: React.FC<FileItemProps> = ({ file, onDownload, onDelete, onShare
         ...(password && { password }),
         ...(expiryMinutes && { expiryMinutes: Number(expiryMinutes) }),
       };
-
       const link = await onShare(file.id, data);
       setShareLink(link);
 
-      // Extract token from the link
       const token = link.split("/").pop();
-      const qrUrl = `http://localhost:8080/api/v1/share/qr/${token}`; // Update port if different
-      setQrCodeUrl(qrUrl);
+      setQrCodeUrl(`http://localhost:8080/api/v1/share/qr/${token}`);
     } catch (error) {
       console.error("Failed to generate share link:", error);
     }
   };
 
   return (
-    <li className="py-2 flex justify-between items-center border-b">
-      <span className="text-gray-800">{file.originalFilename}</span>
+    <li className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-muted rounded-md border hover:shadow-sm transition">
+      <span className="text-sm font-medium text-gray-800 mb-2 sm:mb-0 break-all">
+        {file.originalFilename}
+      </span>
 
-      <div className="flex gap-2">
-        <Dialog open={showShareDialog} onOpenChange={(open) => {
-          setShowShareDialog(open);
-          if (!open) {
-            setPassword("");
-            setExpiryMinutes("");
-            setShareLink("");
-          }
-        }}>
+      <div className="flex flex-wrap gap-2 justify-end">
+        {/* Share Button with Dialog */}
+        <Dialog
+          open={showShareDialog}
+          onOpenChange={(open) => {
+            setShowShareDialog(open);
+            if (!open) {
+              setPassword("");
+              setExpiryMinutes("");
+              setShareLink("");
+              setQrCodeUrl("");
+            }
+          }}
+        >
           <Button variant="default" size="sm" onClick={() => setShowShareDialog(true)}>
-            Share
+            <Share1Icon className="mr-1 h-4 w-4" /> Share
           </Button>
 
-          <DialogContent className="max-w-md p-6">
+          <DialogContent className="max-w-md p-6 space-y-4">
             <DialogHeader>
-              <DialogTitle>Share "{file.originalFilename}"</DialogTitle>
+              <DialogTitle>Share: {file.originalFilename}</DialogTitle>
             </DialogHeader>
 
             <div className="space-y-4">
-               <div className="space-y-2">
+              <div className="space-y-2">
                 <Label htmlFor="password">Password (optional)</Label>
                 <Input
                   id="password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Leave empty for no password"
-                  className="w-full"
+                  placeholder="Add protection"
                 />
               </div>
 
-               <div className="space-y-2">
+              <div className="space-y-2">
                 <Label htmlFor="expiry">Expiry in minutes (optional)</Label>
                 <Input
                   id="expiry"
                   type="number"
                   value={expiryMinutes}
                   onChange={(e) => setExpiryMinutes(e.target.value)}
-                  placeholder="Leave empty for no expiry"
-                  className="w-full"
+                  placeholder="e.g. 60"
                 />
               </div>
 
               <Button onClick={handleShare} className="w-full">
+                <Link1Icon className="mr-2 h-4 w-4" />
                 Generate Link
               </Button>
 
               {shareLink && (
                 <Card>
-                  <CardContent className="pt-4 space-y-2">
-                    <div className="flex items-center gap-2">
+                  <CardContent className="space-y-2 pt-4">
+                    <div className="flex items-center justify-between gap-2">
                       <span className="text-sm font-mono break-all">{shareLink}</span>
                       <Button
                         variant="outline"
@@ -109,20 +127,29 @@ const FileItem: React.FC<FileItemProps> = ({ file, onDownload, onDelete, onShare
                         Copy
                       </Button>
                     </div>
-                    <p className="text-xs text-gray-500">
-                      {password ? "Password protected" : "No password"} |{" "}
-                      {expiryMinutes ? `Expires in ${expiryMinutes} minutes` : "No expiry"}
-                    </p>
-                      {/* QR Code Display */}
-                      {qrCodeUrl && (
-                        <div className="flex justify-center">
-                          <img
-                            src={qrCodeUrl}
-                            alt="QR Code"
-                            className="w-40 h-40 border rounded shadow"
-                          />
-                        </div>
+
+                    <div className="flex items-center text-xs text-muted-foreground gap-4">
+                      {password && (
+                        <span className="flex items-center gap-1">
+                          <LockClosedIcon className="h-3 w-3" /> Password protected
+                        </span>
                       )}
+                      {expiryMinutes && (
+                        <span className="flex items-center gap-1">
+                          <ClockIcon className="h-3 w-3" /> Expires in {expiryMinutes} mins
+                        </span>
+                      )}
+                    </div>
+
+                    {qrCodeUrl && (
+                      <div className="flex justify-center mt-2">
+                        <img
+                          src={qrCodeUrl}
+                          alt="QR Code"
+                          className="w-36 h-36 border rounded shadow"
+                        />
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               )}
@@ -137,11 +164,11 @@ const FileItem: React.FC<FileItemProps> = ({ file, onDownload, onDelete, onShare
         </Dialog>
 
         <Button
-          variant="secondary"
+          className="bg-blue-600 hover:bg-blue-700 text-white"
           size="sm"
           onClick={() => onDownload(file.id, file.originalFilename)}
         >
-          Download
+          <DownloadIcon className="mr-1 h-4 w-4" /> Download
         </Button>
 
         <Button
@@ -149,7 +176,7 @@ const FileItem: React.FC<FileItemProps> = ({ file, onDownload, onDelete, onShare
           size="sm"
           onClick={() => onDelete(file.id)}
         >
-          Delete
+          <TrashIcon className="mr-1 h-4 w-4" /> Delete
         </Button>
       </div>
     </li>
