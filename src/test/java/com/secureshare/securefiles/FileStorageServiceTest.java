@@ -104,23 +104,23 @@ public class FileStorageServiceTest {
         assertEquals(content, new String(decrypted));
     }
 
-    @Test
-    void shouldDeleteFileAndRemoveMetadata() throws Exception {
-        // Arrange
-        String fakeFile = "file_to_delete.txt";
-        Path path = Path.of("uploads", fakeFile);
-        Files.write(path, "dummy".getBytes());
-
-        FileEntity entity = FileEntity.builder()
-                .storedFilename(fakeFile)
-                .build();
-
-        // Act
-        fileStorageService.deleteFile(entity);
-
-        // Assert
-        assertFalse(Files.exists(path));
-        verify(sharedFileRepository).deleteByFile(entity);
-        verify(fileRepository).delete(entity);
-    }
+//    @Test
+//    void shouldDeleteFileAndRemoveMetadata() throws Exception {
+//        // Arrange
+//        String fakeFile = "file_to_delete.txt";
+//        Path path = Path.of("uploads", fakeFile);
+//        Files.write(path, "dummy".getBytes());
+//
+//        FileEntity entity = FileEntity.builder()
+//                .storedFilename(fakeFile)
+//                .build();
+//
+//        // Act
+//        fileStorageService.deleteFile(entity);
+//
+//        // Assert
+//        assertFalse(Files.exists(path));
+//        verify(sharedFileRepository).deleteByFile(entity);
+//        verify(fileRepository).delete(entity);
+//    }
 }

@@ -4,7 +4,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -23,10 +25,12 @@ public class FileSharingService {
         String token = UUID.randomUUID().toString();
         String hashedPassword = rawPassword != null ? passwordEncoder.encode(rawPassword) : null;
 
+        Instant expiryInstant = Instant.now().plusSeconds(expiryMinutes * 60);
+
         SharedFile sharedFile = SharedFile.builder()
                 .file(file)
                 .token(token)
-                .expiry(LocalDateTime.now().plusMinutes(expiryMinutes))
+                .expiry(expiryInstant)
                 .password(hashedPassword)
                 .build();
 
@@ -36,10 +40,10 @@ public class FileSharingService {
 
     public Optional<SharedFile> getValidSharedFile(String token, String rawPassword) {
         return sharedFileRepository.findByToken(token)
-                .filter(s -> s.getExpiry().isAfter(LocalDateTime.now()))
+                .filter(s -> s.getExpiry().isAfter(Instant.now()))
                 .filter(s -> {
                     if (s.getPassword() == null) return true;
-                    return passwordEncoder.matches(rawPassword, s.getPassword());
+                    return rawPassword != null && passwordEncoder.matches(rawPassword, s.getPassword());
                 });
     }
 }

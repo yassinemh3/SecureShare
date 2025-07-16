@@ -7,6 +7,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -46,7 +47,7 @@ public class FileSharingServiceTest {
 
         SharedFile saved = sharedFileCaptor.getValue();
         assertEquals(file, saved.getFile());
-        assertTrue(saved.getExpiry().isAfter(LocalDateTime.now()));
+        assertTrue(saved.getExpiry().isAfter(Instant.from(LocalDateTime.now())));
         assertNotNull(saved.getPassword());
         assertTrue(passwordEncoder.matches("secret123", saved.getPassword()));
     }
@@ -72,7 +73,7 @@ public class FileSharingServiceTest {
         String token = "abc123";
         SharedFile shared = SharedFile.builder()
                 .token(token)
-                .expiry(LocalDateTime.now().plusMinutes(5))
+                .expiry(Instant.from(LocalDateTime.now().plusMinutes(5)))
                 .password(null)
                 .build();
 
@@ -93,7 +94,7 @@ public class FileSharingServiceTest {
 
         SharedFile shared = SharedFile.builder()
                 .token("t1")
-                .expiry(LocalDateTime.now().plusMinutes(1))
+                .expiry(Instant.from(LocalDateTime.now().plusMinutes(1)))
                 .password(encodedPassword)
                 .build();
 
@@ -111,7 +112,7 @@ public class FileSharingServiceTest {
         // Arrange
         SharedFile shared = SharedFile.builder()
                 .token("t2")
-                .expiry(LocalDateTime.now().plusMinutes(1))
+                .expiry(Instant.from(LocalDateTime.now().plusMinutes(1)))
                 .password(passwordEncoder.encode("correct"))
                 .build();
 
@@ -129,7 +130,7 @@ public class FileSharingServiceTest {
         // Arrange
         SharedFile shared = SharedFile.builder()
                 .token("expired")
-                .expiry(LocalDateTime.now().minusMinutes(1))
+                .expiry(Instant.from(LocalDateTime.now().minusMinutes(1)))
                 .build();
 
         when(sharedFileRepository.findByToken("expired")).thenReturn(Optional.of(shared));

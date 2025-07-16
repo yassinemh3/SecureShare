@@ -1,30 +1,18 @@
 package com.secureshare.securefiles.file;
 
+import com.secureshare.securefiles.util.QrCodeUtil;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ByteArrayResource;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.*;
 import org.springframework.util.StringUtils;
-import java.util.Base64;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-
-import com.secureshare.securefiles.util.QrCodeUtil;
-import com.secureshare.securefiles.file.FileEntity;
-import com.secureshare.securefiles.file.SharedFile;
-import com.secureshare.securefiles.file.FileSharingService;
-import com.secureshare.securefiles.file.FileStorageService;
-
-import lombok.extern.slf4j.Slf4j;
+import java.util.Base64;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @RestController
@@ -34,15 +22,34 @@ public class FileSharingController {
 
     private final FileSharingService sharingService;
     private final FileStorageService fileStorageService;
+    private final FileRepository fileRepository;
 
     @PostMapping("/{fileId}")
     public ResponseEntity<String> shareFile(
             @PathVariable Long fileId,
             @RequestParam(required = false) String password,
-            @RequestParam(defaultValue = "60") long expiryMinutes
+            @RequestParam(defaultValue = "1440") long expiryMinutes // Default 24 hours
     ) {
-        String token = sharingService.generateShareLink(fileId, password, expiryMinutes);
-        return ResponseEntity.ok("http://localhost:5173/share/access/" + token);
+        try {
+            // Validate expiry time
+            if (expiryMinutes <= 0) {
+                throw new IllegalArgumentException("Expiry time must be positive");
+            }
+
+            // Verify file exists
+            if (!fileRepository.existsById(fileId)) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found");
+            }
+
+            String token = sharingService.generateShareLink(fileId, password, expiryMinutes);
+            String shareUrl = "http://localhost:5173/share/access/" + token;
+            return ResponseEntity.ok(shareUrl);
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        } catch (Exception e) {
+            log.error("Error generating share link for file {}", fileId, e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error creating share link");
+        }
     }
 
     @GetMapping("/access/{token}")
@@ -51,44 +58,59 @@ public class FileSharingController {
             @RequestParam(required = false) String password
     ) {
         try {
-            // Validate token format (simple check for UUID format)
-            if (token.split("-").length != 5) {
+            // Validate token format (basic UUID check)
+            if (!token.matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")) {
                 log.warn("Invalid token format: {}", token);
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid token format");
             }
-            // Validate token and get shared file
+
             SharedFile shared = sharingService.getValidSharedFile(token, password)
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Invalid or expired token"));
 
-            // Get file content
             FileEntity file = shared.getFile();
             byte[] content = fileStorageService.getFileContent(file);
 
-            // Return file with proper headers
             return ResponseEntity.ok()
                     .contentType(MediaType.parseMediaType(
                             StringUtils.hasText(file.getContentType()) ?
                                     file.getContentType() :
-                                    "application/octet-stream")) // Fallback content type
+                                    MediaType.APPLICATION_OCTET_STREAM_VALUE))
                     .header(HttpHeaders.CONTENT_DISPOSITION,
                             "attachment; filename=\"" + encodeFilename(file.getOriginalFilename()) + "\"")
                     .body(new ByteArrayResource(content));
 
         } catch (ResponseStatusException e) {
-            return ResponseEntity.status(e.getStatusCode()).body(e.getReason());
+            throw e; // Re-throw existing status exceptions
         } catch (Exception e) {
             log.error("File access error for token: {}", token, e);
-            return ResponseEntity.internalServerError().body("File access error");
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error accessing file");
         }
     }
+
     @GetMapping("/qr/{token}")
-    public ResponseEntity<ByteArrayResource> getQrCodeForToken(@PathVariable String token) throws Exception {
-        String url = "http://localhost:5173/share/access/" + token;
-        String base64 = QrCodeUtil.generateBase64QrCode(url, 300, 300);
-        byte[] decoded = Base64.getDecoder().decode(base64);
-        return ResponseEntity.ok()
-                .contentType(MediaType.IMAGE_PNG)
-                .body(new ByteArrayResource(decoded));
+    public ResponseEntity<ByteArrayResource> getQrCodeForToken(
+            @PathVariable String token,
+            @RequestParam(defaultValue = "300") int width,
+            @RequestParam(defaultValue = "300") int height
+    ) {
+        try {
+            // Basic token validation
+            if (token.length() != 36) { // UUID length
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid token format");
+            }
+
+            String url = "http://localhost:5173/share/access/" + token;
+            String base64 = QrCodeUtil.generateBase64QrCode(url, width, height);
+            byte[] decoded = Base64.getDecoder().decode(base64);
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.IMAGE_PNG)
+                    .cacheControl(CacheControl.maxAge(1, TimeUnit.HOURS)) // Cache QR codes
+                    .body(new ByteArrayResource(decoded));
+        } catch (Exception e) {
+            log.error("QR generation failed for token: {}", token, e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error generating QR code");
+        }
     }
 
     private String encodeFilename(String filename) {

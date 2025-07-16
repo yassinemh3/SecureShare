@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
+import { toast } from 'sonner';
 
 interface FileItemProps {
   file: {
@@ -102,7 +103,7 @@ const FileItem: React.FC<FileItemProps> = ({ file, onDownload, onDelete, onShare
                         size="sm"
                         onClick={() => {
                           navigator.clipboard.writeText(shareLink);
-                          alert("Link copied to clipboard!");
+                          toast("Share link copied to clipboard");
                         }}
                       >
                         Copy

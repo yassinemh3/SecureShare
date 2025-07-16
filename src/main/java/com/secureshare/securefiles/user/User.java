@@ -1,5 +1,7 @@
 package com.secureshare.securefiles.user;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.secureshare.securefiles.file.FileEntity;
 import com.secureshare.securefiles.token.Token;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -38,7 +40,12 @@ public class User implements UserDetails {
   private Role role;
 
   @OneToMany(mappedBy = "user")
+  @JsonIgnore
   private List<Token> tokens;
+
+  @OneToMany(mappedBy = "user")
+  @JsonIgnore  // Prevent serialization of user's files
+  private List<FileEntity> files;
 
   @Override
   public Collection<? extends GrantedAuthority> getAuthorities() {
