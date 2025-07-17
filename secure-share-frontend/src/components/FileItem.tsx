@@ -26,6 +26,7 @@ interface FileItemProps {
     id: number;
     originalFilename: string;
     zke?: boolean;
+    size: number;
   };
   onDownload: (id: number, filename: string, isZke?: boolean) => void;
   onDelete: (id: number) => void;
@@ -55,10 +56,23 @@ const FileItem: React.FC<FileItemProps> = ({ file, onDownload, onDelete, onShare
     }
   };
 
+  function formatFileSize(bytes: number): string {
+      if (bytes === 0) return '0 Bytes';
+
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
   return (
     <li className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-muted rounded-md border hover:shadow-sm transition">
       <span className="text-sm font-medium text-gray-800 mb-2 sm:mb-0 break-all">
         {file.originalFilename}
+        <span className="text-xs text-muted-foreground ml-2">
+            ({formatFileSize(file.size)})
+        </span>
       </span>
 
       <div className="flex flex-wrap gap-2 justify-end">
