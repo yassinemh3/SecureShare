@@ -13,6 +13,7 @@
 - File upload/download/delete functionality
 - Secure shareable download links and a QR Code (with optional password and expiry)
 - Role-based access (Admin/User)
+- Managing The Shared Links
 
 ---
 
@@ -25,6 +26,7 @@
 - 🔗 **Token-based File Sharing with Optional Password**
 - 👮‍♂️ **Role-based Access Control**
 - 🔗 **QR Code Sharing**
+- 🔗 Shared Links Management
 
 ---
 
@@ -147,7 +149,7 @@ After generating a shareable link for your file, a **QR code** will also be disp
 
 ### 🏠 Home Page
 
-![Home Page](./assets/home.png)
+![Home Page](./assets/home_pg.png)
 
 ---
 
