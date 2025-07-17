@@ -3,6 +3,9 @@ import FileUploadForm from '../components/FileUploadForm';
 import FileList from '../components/FileList';
 import StatusMessage from '../components/StatusMessage';
 import { Toaster } from "@/components/ui/sonner";
+import { encryptFile } from "../lib/zkeEncrypt";
+import { decryptFile } from "../lib/zkeDecrypt";
+import DecryptModal from "../components/DecryptModal";
 
 interface HomeProps {
   onLogout: () => void;
@@ -14,6 +17,7 @@ interface FileMetadata {
   originalFilename: string;
   uploadedAt: string;
   size: number;
+  zke?: boolean;
 }
 
 const Home: React.FC<HomeProps> = ({ onLogout, token }) => {
@@ -22,6 +26,10 @@ const Home: React.FC<HomeProps> = ({ onLogout, token }) => {
   const [files, setFiles] = useState<FileMetadata[]>([]);
   const [username, setUsername] = useState('');
 
+  // Decryption Modal State
+  const [decryptModalOpen, setDecryptModalOpen] = useState(false);
+  const [pendingFile, setPendingFile] = useState<{ id: number; filename: string } | null>(null);
+
   const fetchFiles = async () => {
     try {
       const res = await fetch('http://localhost:8080/api/v1/files', {
@@ -29,7 +37,16 @@ const Home: React.FC<HomeProps> = ({ onLogout, token }) => {
       });
 
       if (res.ok) {
-        setFiles(await res.json());
+        const rawFiles = await res.json();
+
+          // Infer `zke` from filename
+          const processedFiles = rawFiles.map((f: any) => ({
+            ...f,
+            zke: f.originalFilename.endsWith('.enc'),
+          }));
+
+          setFiles(processedFiles);
+
       } else if (res.status === 401) {
         onLogout();
       } else {
@@ -44,7 +61,6 @@ const Home: React.FC<HomeProps> = ({ onLogout, token }) => {
     const fetchUserInfo = async () => {
       try {
         const res = await fetch('http://localhost:8080/api/v1/auth/me', {
-          method: 'GET',
           headers: { Authorization: `Bearer ${token}` }
         });
 
@@ -68,20 +84,26 @@ const Home: React.FC<HomeProps> = ({ onLogout, token }) => {
     setSelectedFile(e.target.files?.[0] || null);
   };
 
-  const handleUpload = async () => {
+  const handleUpload = async (zkeOptions?: { useZKE: boolean; passphrase: string }) => {
     if (!selectedFile) {
       setMessage('Please select a file.');
       return;
     }
 
     const formData = new FormData();
-    formData.append('file', selectedFile);
-
     try {
+      if (zkeOptions?.useZKE) {
+        const encryptedBlob = await encryptFile(selectedFile, zkeOptions.passphrase);
+        formData.append('file', encryptedBlob, selectedFile.name + ".enc");
+        formData.append("zke", "true");
+      } else {
+        formData.append('file', selectedFile);
+      }
+
       const res = await fetch('http://localhost:8080/api/v1/files/upload', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
-        body: formData
+        body: formData,
       });
 
       const responseData = await res.json().catch(async () => ({
@@ -100,25 +122,73 @@ const Home: React.FC<HomeProps> = ({ onLogout, token }) => {
     }
   };
 
-  const handleDownload = async (fileId: number, filename: string) => {
+    const handleDownload = async (fileId: number, filename: string, isZke?: boolean) => {
+
+      if (isZke) {
+        setPendingFile({ id: fileId, filename });
+        setDecryptModalOpen(true);
+      } else {
+        try {
+          const res = await fetch(`http://localhost:8080/api/v1/files/${fileId}/download`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+
+          if (res.ok) {
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            window.URL.revokeObjectURL(url);
+          } else {
+            setMessage("Download failed");
+          }
+        } catch {
+          setMessage("Download error");
+        }
+      }
+    };
+
+  const handleConfirmDecryption = async (passphrase: string) => {
+    if (!pendingFile) return;
+
     try {
-      const res = await fetch(`http://localhost:8080/api/v1/files/${fileId}/download`, {
-        headers: { Authorization: `Bearer ${token}` }
+      const res = await fetch(`http://localhost:8080/api/v1/files/${pendingFile.id}/download`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (res.ok) {
-        const blob = await res.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        a.click();
-        window.URL.revokeObjectURL(url);
-      } else {
-        throw new Error('Download failed.');
+      if (!res.ok) {
+        setMessage("Download failed");
+        return;
       }
-    } catch {
-      setMessage('Download error.');
+
+      const encryptedBlob = await res.blob();
+      const arrayBuffer = await encryptedBlob.arrayBuffer();
+
+      // 🔓 Extract IV (first 12 bytes) and ciphertext (remaining bytes)
+      const iv = new Uint8Array(arrayBuffer.slice(0, 12));
+      const encryptedData = arrayBuffer.slice(12);
+
+      // 🔐 Decrypt
+      const decryptedArrayBuffer = await decryptFile(encryptedData, passphrase, iv);
+
+      // 💾 Download decrypted file
+      const decryptedBlob = new Blob([decryptedArrayBuffer]);
+      const url = URL.createObjectURL(decryptedBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = pendingFile.filename.replace(/\.enc$/, "");
+      a.click();
+      URL.revokeObjectURL(url);
+
+      setMessage("File decrypted and downloaded successfully!");
+    } catch (err) {
+      console.error(err);
+      setMessage("Decryption failed. Maybe wrong passphrase.");
+    } finally {
+      setDecryptModalOpen(false);
+      setPendingFile(null);
     }
   };
 
@@ -172,7 +242,6 @@ const Home: React.FC<HomeProps> = ({ onLogout, token }) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Sticky Header */}
       <header className="sticky top-0 z-10 bg-white shadow p-4 flex justify-between items-center">
         <h2 className="text-lg font-semibold">Hi, {username}</h2>
         <button
@@ -186,7 +255,6 @@ const Home: React.FC<HomeProps> = ({ onLogout, token }) => {
       <main className="flex flex-col items-center px-4 pt-6 pb-12">
         <div className="w-full max-w-2xl bg-white shadow-md rounded-lg p-6 space-y-6">
           <Toaster position="top-center" richColors />
-
           <h1 className="text-2xl font-bold text-center">SecureShare Dashboard</h1>
 
           <FileUploadForm
@@ -208,6 +276,12 @@ const Home: React.FC<HomeProps> = ({ onLogout, token }) => {
           />
         </div>
       </main>
+
+      <DecryptModal
+        open={decryptModalOpen}
+        onClose={() => setDecryptModalOpen(false)}
+        onConfirm={handleConfirmDecryption}
+      />
     </div>
   );
 };

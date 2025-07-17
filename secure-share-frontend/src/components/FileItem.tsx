@@ -25,8 +25,9 @@ interface FileItemProps {
   file: {
     id: number;
     originalFilename: string;
+    zke?: boolean;
   };
-  onDownload: (id: number, filename: string) => void;
+  onDownload: (id: number, filename: string, isZke?: boolean) => void;
   onDelete: (id: number) => void;
   onShare: (fileId: number, data: { password?: string; expiryMinutes?: number }) => Promise<string>;
 }
@@ -166,7 +167,7 @@ const FileItem: React.FC<FileItemProps> = ({ file, onDownload, onDelete, onShare
         <Button
           className="bg-blue-600 hover:bg-blue-700 text-white"
           size="sm"
-          onClick={() => onDownload(file.id, file.originalFilename)}
+          onClick={() => onDownload(file.id, file.originalFilename, file.zke)}
         >
           <DownloadIcon className="mr-1 h-4 w-4" /> Download
         </Button>

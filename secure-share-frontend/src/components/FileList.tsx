@@ -6,8 +6,9 @@ interface FileListProps {
   files: Array<{
     id: number;
     originalFilename: string;
+    zke?: boolean; // Add this
   }>;
-  onDownload: (id: number, filename: string) => void;
+  onDownload: (id: number, filename: string, isZke?: boolean) => void;
   onDelete: (id: number) => void;
   onShare: (fileId: number, data: { password?: string; expiryMinutes?: number }) => Promise<string>;
 }
