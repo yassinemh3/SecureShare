@@ -1,20 +1,40 @@
 package com.secureshare.securefiles.dto;
 
+import com.secureshare.securefiles.file.FileEntity;
 import com.secureshare.securefiles.file.SharedFile;
-import java.time.Instant;
+import lombok.Builder;
+import lombok.Getter;
 
-public record SharedFileDTO(
-        Long id,
-        String token,
-        Instant expiryDate,
-        boolean hasPassword
-) {
+import java.time.Instant;
+import java.time.LocalDateTime;
+
+@Getter
+@Builder
+public class SharedFileDTO {
+    private final Long id;
+    private final String token;
+    private final String filename;
+    private final Instant expiryDate;
+    private final boolean hasPassword;
+    private final String shareUrl;
+    private final LocalDateTime createdAt;
+    private final Long fileId;
+    private final String fileContentType;
+    private final Long fileSize;
+
     public static SharedFileDTO fromEntity(SharedFile sharedFile) {
-        return new SharedFileDTO(
-                sharedFile.getId(),
-                sharedFile.getToken(),
-                sharedFile.getExpiry(),
-                sharedFile.getPassword() != null
-        );
+        FileEntity file = sharedFile.getFile();
+        return SharedFileDTO.builder()
+                .id(sharedFile.getId())
+                .token(sharedFile.getToken())
+                .filename(file.getOriginalFilename())
+                .expiryDate(sharedFile.getExpiry())
+                .hasPassword(sharedFile.getPassword() != null)
+                .shareUrl("http://localhost:5173/share/access/" + sharedFile.getToken())
+                .createdAt(sharedFile.getCreatedAt())
+                .fileId(file.getId())
+                .fileContentType(file.getContentType())
+                .fileSize(file.getSize())
+                .build();
     }
 }

@@ -1,6 +1,7 @@
 package com.secureshare.securefiles.file;
 
 import com.secureshare.securefiles.util.QrCodeUtil;
+import com.secureshare.securefiles.dto.SharedFileDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ByteArrayResource;
@@ -8,11 +9,16 @@ import org.springframework.http.*;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
-
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import com.secureshare.securefiles.user.User;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.concurrent.TimeUnit;
+import com.secureshare.securefiles.file.SharedFileRepository;
 
 @Slf4j
 @RestController
@@ -23,6 +29,7 @@ public class FileSharingController {
     private final FileSharingService sharingService;
     private final FileStorageService fileStorageService;
     private final FileRepository fileRepository;
+    private final SharedFileRepository sharedFileRepository;
 
     @PostMapping("/{fileId}")
     public ResponseEntity<String> shareFile(
@@ -50,6 +57,27 @@ public class FileSharingController {
             log.error("Error generating share link for file {}", fileId, e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error creating share link");
         }
+    }
+
+    @GetMapping
+    public ResponseEntity<Page<SharedFileDTO>> getUserSharedFiles(
+            @AuthenticationPrincipal User user,
+            @PageableDefault(size = 20) Pageable pageable) {
+        try {
+            Page<SharedFileDTO> shares = sharingService.getUserSharedFiles(user, pageable);
+            return ResponseEntity.ok(shares);
+        } catch (Exception e) {
+            log.error("Error fetching shared files for user {}", user.getId(), e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error fetching shares");
+        }
+    }
+
+    @DeleteMapping("/{token}")
+    public ResponseEntity<Void> revokeShare(
+            @PathVariable String token,
+            @AuthenticationPrincipal User user) {
+        sharingService.revokeShare(token, user);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/access/{token}")

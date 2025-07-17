@@ -12,6 +12,15 @@ interface HomeProps {
   token: string;
 }
 
+interface SharedLink {
+  id: string;
+  fileId: number;
+  filename: string;
+  url: string;
+  expiresAt?: string;
+  hasPassword: boolean;
+}
+
 interface FileMetadata {
   id: number;
   originalFilename: string;
@@ -25,6 +34,7 @@ const Home: React.FC<HomeProps> = ({ onLogout, token }) => {
   const [message, setMessage] = useState('');
   const [files, setFiles] = useState<FileMetadata[]>([]);
   const [username, setUsername] = useState('');
+  const [sharedLinks, setSharedLinks] = useState<SharedLink[]>([]);
 
   // Decryption Modal State
   const [decryptModalOpen, setDecryptModalOpen] = useState(false);
@@ -56,6 +66,48 @@ const Home: React.FC<HomeProps> = ({ onLogout, token }) => {
       setMessage('Error loading files.');
     }
   };
+
+    useEffect(() => {
+      const fetchSharedLinks = async () => {
+        try {
+          const res = await fetch('http://localhost:8080/api/v1/share', {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (res.ok) {
+            const data = await res.json();
+            setSharedLinks(Array.isArray(data) ? data : []);
+          }
+        } catch (error) {
+          console.error("Failed to fetch shared links:", error);
+          setSharedLinks([]); // Reset to empty array on error
+        }
+      };
+
+      fetchSharedLinks();
+    }, [token]);
+
+    const handleRevokeShare = async (shareId: string) => {
+      try {
+        // Extract token from URL (last segment after '/')
+        const shareToken = sharedLinks.find(link => link.id === shareId)?.url.split('/').pop();
+        if (!shareToken) {
+          setMessage('Invalid share link');
+          return;
+        }
+
+        const res = await fetch(`http://localhost:8080/api/v1/share/${shareToken}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (res.ok) {
+          setSharedLinks(prev => prev.filter(link => link.id !== shareId));
+          setMessage('Share link revoked successfully');
+        }
+      } catch (error) {
+        setMessage('Failed to revoke share link');
+      }
+    };
 
   useEffect(() => {
     const fetchUserInfo = async () => {
@@ -217,28 +269,49 @@ const Home: React.FC<HomeProps> = ({ onLogout, token }) => {
     }
   };
 
-  const handleShare = async (fileId: number, data: { password?: string; expiryMinutes?: number }): Promise<string> => {
-    try {
-      const params = new URLSearchParams();
-      if (data.password) params.append('password', data.password);
-      if (data.expiryMinutes) params.append('expiryMinutes', data.expiryMinutes.toString());
+    const handleShare = async (fileId: number, data: { password?: string; expiryMinutes?: number }): Promise<string> => {
+      try {
+        const params = new URLSearchParams();
+        if (data.password) params.append('password', data.password);
+        if (data.expiryMinutes) params.append('expiryMinutes', data.expiryMinutes.toString());
 
-      const res = await fetch(`http://localhost:8080/api/v1/share/${fileId}?${params.toString()}`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` }
-      });
+        const res = await fetch(`http://localhost:8080/api/v1/share/${fileId}?${params.toString()}`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` }
+        });
 
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(errorText || 'Failed to generate share link');
+        if (!res.ok) {
+          const errorText = await res.text();
+          throw new Error(errorText || 'Failed to generate share link');
+        }
+
+        const shareUrl = await res.text();
+        const file = files.find(f => f.id === fileId);
+
+        // Safely update sharedLinks
+        setSharedLinks(prev => {
+          const currentLinks = Array.isArray(prev) ? prev : [];
+          return [
+            ...currentLinks,
+            {
+              id: Date.now().toString(),
+              fileId,
+              filename: file?.originalFilename || '',
+              url: shareUrl,
+              expiresAt: data.expiryMinutes
+                ? new Date(Date.now() + data.expiryMinutes * 60000).toISOString()
+                : undefined,
+              hasPassword: !!data.password
+            }
+          ];
+        });
+
+        return shareUrl;
+      } catch (error) {
+        setMessage('Error generating share link: ' + (error as Error).message);
+        throw error;
       }
-
-      return await res.text();
-    } catch (error) {
-      setMessage('Error generating share link: ' + (error as Error).message);
-      throw error;
-    }
-  };
+    };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -270,9 +343,11 @@ const Home: React.FC<HomeProps> = ({ onLogout, token }) => {
 
           <FileList
             files={files}
+            sharedLinks={sharedLinks}
             onDownload={handleDownload}
             onDelete={handleDelete}
             onShare={handleShare}
+            onRevokeShare={handleRevokeShare}
           />
         </div>
       </main>

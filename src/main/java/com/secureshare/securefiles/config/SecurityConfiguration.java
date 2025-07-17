@@ -65,6 +65,10 @@ public class SecurityConfiguration {
                                 .requestMatchers("/api/v1/auth/me").authenticated()
                                 .requestMatchers("/api/v1/auth/logout").authenticated()
 
+                                .requestMatchers(POST, "/api/v1/share/**").authenticated()
+                                .requestMatchers(DELETE, "/api/v1/share/**").authenticated()
+                                .requestMatchers(GET, "/api/v1/share").authenticated()
+
                                 // File operations
                                 .requestMatchers(GET, "/api/v1/files/**").hasAuthority("file:download")
                                 .requestMatchers(POST, "/api/v1/files/**").hasAuthority("file:upload")

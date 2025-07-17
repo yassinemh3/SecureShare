@@ -8,6 +8,7 @@ import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.concurrent.TimeUnit;
 
 @Entity
 @Table(name = "shared_files") // Explicit table name
@@ -44,6 +45,18 @@ public class SharedFile {
     @ToString.Exclude
     @JsonIgnore
     private User sharedBy;
+
+    @Column(name = "is_active", columnDefinition = "boolean default true")
+    private boolean active = true;
+
+    // Add this method
+    @PrePersist
+    protected void onCreate() {
+        if (this.expiry == null) {
+            // Default 24 hour expiry if not set
+            this.expiry = Instant.now().plusSeconds(TimeUnit.HOURS.toSeconds(24));
+        }
+    }
 
     // Helper methods
     public boolean isExpired() {
