@@ -9,7 +9,7 @@
 **SecureShare** is a secure file upload, storage, and sharing web application built with **Spring Boot (Java)** for the backend and **React** for the frontend. It supports:
 
 - User authentication (JWT)
-- Encrypted file storage using AES
+- Encrypted file storage using AES-GCM encryption
 - File upload/download/delete functionality
 - Secure shareable download links and a QR Code (with optional password and expiry)
 - Role-based access (Admin/User)
@@ -21,7 +21,7 @@
 - 🔐 **User Authentication** (JWT with BCrypt hashing)
 - 📤 **File Upload & Download**
 - 🧹 **File Deletion with Authorization**
-- 🗃️ **Encrypted File Storage (AES)**
+- 🗃️ **Encrypted File Storage (AES-GCM)**
 - 🔗 **Token-based File Sharing with Optional Password**
 - 👮‍♂️ **Role-based Access Control**
 - 🔗 **QR Code Sharing**
@@ -30,7 +30,7 @@
 
 ## 🧱 Tech Stack
 
-- **Backend**: Java, Spring Boot, Spring Security, JPA, JWT, AES Encryption  
+- **Backend**: Java, Spring Boot, Spring Security, JPA, JWT, AES-GCM Encryption  
 - **Frontend**: React, TailwindCSS, TypeScript, shadcn/ui
 - **Database**: PostgreSQL
 
@@ -159,7 +159,7 @@ After generating a shareable link for your file, a **QR code** will also be disp
 
 ## 🛡️ Security Notes
 
-- AES encryption secures files at rest
+- AES-GCM encryption secures files at rest
 - Only authenticated users can upload or manage files
 - Shared links can be:
   - Expiry-based
