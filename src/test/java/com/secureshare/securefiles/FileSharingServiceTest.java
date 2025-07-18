@@ -1,15 +1,27 @@
 package com.secureshare.securefiles;
 
 import com.secureshare.securefiles.file.*;
+import com.secureshare.securefiles.dto.SharedFileDTO;
+import com.secureshare.securefiles.user.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -25,7 +37,7 @@ public class FileSharingServiceTest {
     void setUp() {
         sharedFileRepository = mock(SharedFileRepository.class);
         fileRepository = mock(FileRepository.class);
-        passwordEncoder = new BCryptPasswordEncoder(); // Real encoder is okay for tests
+        passwordEncoder = new BCryptPasswordEncoder();
         fileSharingService = new FileSharingService(sharedFileRepository, fileRepository, passwordEncoder);
     }
 
@@ -47,7 +59,7 @@ public class FileSharingServiceTest {
 
         SharedFile saved = sharedFileCaptor.getValue();
         assertEquals(file, saved.getFile());
-        assertTrue(saved.getExpiry().isAfter(Instant.from(LocalDateTime.now())));
+        assertTrue(saved.getExpiry().isAfter(Instant.now()));
         assertNotNull(saved.getPassword());
         assertTrue(passwordEncoder.matches("secret123", saved.getPassword()));
     }
@@ -68,12 +80,24 @@ public class FileSharingServiceTest {
     }
 
     @Test
+    void shouldThrowWhenFileNotFoundForShareLink() {
+        // Arrange
+        Long fileId = 99L;
+        when(fileRepository.findById(fileId)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertThrows(RuntimeException.class, () ->
+                fileSharingService.generateShareLink(fileId, null, 5)
+        );
+    }
+
+    @Test
     void shouldReturnValidSharedFileWhenNoPassword() {
         // Arrange
         String token = "abc123";
         SharedFile shared = SharedFile.builder()
                 .token(token)
-                .expiry(Instant.from(LocalDateTime.now().plusMinutes(5)))
+                .expiry(Instant.now().plusSeconds(60))
                 .password(null)
                 .build();
 
@@ -94,7 +118,7 @@ public class FileSharingServiceTest {
 
         SharedFile shared = SharedFile.builder()
                 .token("t1")
-                .expiry(Instant.from(LocalDateTime.now().plusMinutes(1)))
+                .expiry(Instant.now().plusSeconds(60))
                 .password(encodedPassword)
                 .build();
 
@@ -112,7 +136,7 @@ public class FileSharingServiceTest {
         // Arrange
         SharedFile shared = SharedFile.builder()
                 .token("t2")
-                .expiry(Instant.from(LocalDateTime.now().plusMinutes(1)))
+                .expiry(Instant.now().plusSeconds(60))
                 .password(passwordEncoder.encode("correct"))
                 .build();
 
@@ -130,7 +154,7 @@ public class FileSharingServiceTest {
         // Arrange
         SharedFile shared = SharedFile.builder()
                 .token("expired")
-                .expiry(Instant.from(LocalDateTime.now().minusMinutes(1)))
+                .expiry(Instant.now().minusSeconds(60))
                 .build();
 
         when(sharedFileRepository.findByToken("expired")).thenReturn(Optional.of(shared));
@@ -141,4 +165,119 @@ public class FileSharingServiceTest {
         // Assert
         assertTrue(result.isEmpty());
     }
+
+    @Test
+    void shouldReturnEmptyWhenTokenNotFound() {
+        // Arrange
+        when(sharedFileRepository.findByToken("missing")).thenReturn(Optional.empty());
+
+        // Act
+        Optional<SharedFile> result = fileSharingService.getValidSharedFile("missing", null);
+
+        // Assert
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void shouldGetUserSharedFiles() {
+        // Arrange
+        User user = User.builder().id(1).build();
+        Pageable pageable = PageRequest.of(0, 10);
+
+        FileEntity file = FileEntity.builder()
+                .id(1L)
+                .originalFilename("test.txt")
+                .build();
+
+        SharedFile sharedFile = SharedFile.builder()
+                .id(1L)
+                .token(UUID.randomUUID().toString())
+                .file(file)
+                .expiry(Instant.now().plusSeconds(3600))
+                .build();
+
+        when(sharedFileRepository.findBySharedBy(user, pageable))
+                .thenReturn(new PageImpl<>(List.of(sharedFile)));
+
+        // Act
+        Page<SharedFileDTO> result = fileSharingService.getUserSharedFiles(user, pageable);
+
+        // Assert
+        assertEquals(1, result.getTotalElements());
+        SharedFileDTO dto = result.getContent().get(0);
+        assertEquals(file.getOriginalFilename(), dto.getFilename());
+        assertEquals(sharedFile.getToken(), dto.getToken());
+    }
+
+    @Test
+    void shouldRevokeShareSuccessfully() {
+        // Arrange
+        String token = "valid-token";
+        User user = User.builder().id(1).build();
+        SharedFile share = SharedFile.builder()
+                .token(token)
+                .sharedBy(user)
+                .build();
+
+        when(sharedFileRepository.findByToken(token)).thenReturn(Optional.of(share));
+
+        // Act & Assert
+        assertDoesNotThrow(() -> fileSharingService.revokeShare(token, user));
+        verify(sharedFileRepository).delete(share);
+    }
+
+    @Test
+    void shouldThrowWhenRevokingNonExistentShare() {
+        // Arrange
+        String token = "invalid-token";
+        when(sharedFileRepository.findByToken(token)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> fileSharingService.revokeShare(token, mock(User.class)));
+
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
+    }
+
+    @Test
+    void shouldThrowWhenRevokingUnauthorizedShare() {
+        // Arrange
+        String token = "valid-token";
+        User owner = User.builder().id(1).build();
+        User otherUser = User.builder().id(2).build();
+
+        SharedFile share = SharedFile.builder()
+                .token(token)
+                .sharedBy(owner)
+                .build();
+
+        when(sharedFileRepository.findByToken(token)).thenReturn(Optional.of(share));
+
+        // Act & Assert
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> fileSharingService.revokeShare(token, otherUser));
+
+        assertEquals(HttpStatus.FORBIDDEN, exception.getStatusCode());
+    }
+
+    @Test
+    void shouldHandleDatabaseErrorDuringRevoke() {
+        // Arrange
+        String token = "valid-token";
+        User user = User.builder().id(1).build();
+        SharedFile share = SharedFile.builder()
+                .token(token)
+                .sharedBy(user)
+                .build();
+
+        when(sharedFileRepository.findByToken(token)).thenReturn(Optional.of(share));
+        doThrow(new DataIntegrityViolationException("DB error")).when(sharedFileRepository).delete(share);
+
+        // Act & Assert
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> fileSharingService.revokeShare(token, user));
+
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, exception.getStatusCode());
+    }
+
 }
