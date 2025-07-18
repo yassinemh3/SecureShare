@@ -27,14 +27,14 @@
 - 🔗 **Token-based File Sharing with Optional Password**
 - 👮‍♂️ **Role-based Access Control**
 - 🔗 **QR Code Sharing**
-- 🔗 **Shared Links Management
-- 🔐 **Zero-Knowledge Encryption
+- 🔗 **Shared Links Management**
+- 🔐 **Zero-Knowledge Encryption**
 
 ---
 
 ## 🧱 Tech Stack
 
-- **Backend**: Java, Spring Boot, Spring Security, JPA, JWT, AES-GCM Encryption  
+- **Backend**: Java, Spring Boot, Spring Security, JPA, JWT, AES-GCM Encryption, Zero-Knowledge Encryption
 - **Frontend**: React, TailwindCSS, TypeScript, shadcn/ui
 - **Database**: PostgreSQL
 
@@ -197,7 +197,7 @@ When downloading an encrypted file:
 
 ![Sharepage](./assets/Sharepage.png)
 
-
+---
 
 ## 🛡️ Security Notes
 
@@ -207,6 +207,7 @@ When downloading an encrypted file:
   - Expiry-based
   - Password-protected
 - JWT secures user sessions
+- Zero-Knowledge Encryption for files before upload
 
 ---
 
