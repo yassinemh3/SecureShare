@@ -2,6 +2,9 @@ import React from 'react';
 import FileItem from './FileItem';
 import { Card, CardContent } from "@/components/ui/card";
 import { SharedLinkItem } from "@/components/SharedLinkItem";
+import { Input } from "@/components/ui/input";
+import { SearchIcon } from "lucide-react";
+import { useState } from 'react';
 
 interface FileListProps {
   files: Array<{
@@ -22,6 +25,7 @@ interface FileListProps {
   onDelete: (id: number) => void;
   onShare: (fileId: number, data: { password?: string; expiryMinutes?: number }) => Promise<string>;
   onRevokeShare?: (id: string) => void;
+  onSearch?: (query: string) => void;
 }
 
 export const FileList = ({
@@ -36,17 +40,46 @@ export const FileList = ({
   const safeSharedLinks = Array.isArray(sharedLinks) ? sharedLinks : [];
   const safeFiles = Array.isArray(files) ? files : [];
 
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Filter files based on search query
+  const filteredFiles = safeFiles.filter(file =>
+    file.originalFilename.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <div className="space-y-6">
+      {/* Search Bar */}
+      <div className="relative">
+        <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          type="text"
+          placeholder="Search files..."
+          className="pl-10"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+      </div>
+
       {/* Your Files Section */}
-      <Card className="mt-6">
+      <Card className="mt-2"> {/* Reduced margin-top */}
         <CardContent className="p-6 space-y-4">
-          <h2 className="text-xl font-semibold">Your Files</h2>
-          {safeFiles.length === 0 ? (
-            <p className="text-muted-foreground text-center py-8">No files uploaded yet</p>
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-semibold">Your Files</h2>
+            {searchQuery && (
+              <span className="text-sm text-muted-foreground">
+                {filteredFiles.length} results
+              </span>
+            )}
+          </div>
+
+          {filteredFiles.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">
+              {searchQuery ? "No matching files" : "No files uploaded yet"}
+            </p>
           ) : (
             <ul className="space-y-3">
-              {safeFiles.map(file => (
+              {filteredFiles.map(file => (
                 <FileItem
                   key={file.id}
                   file={file}

@@ -161,6 +161,7 @@ public class FileStorageService {
         }
     }
 
+
     // Custom exceptions
     public static class CryptoException extends Exception {
         public CryptoException(String message, Throwable cause) {
@@ -177,4 +178,5 @@ public class FileStorageService {
     private SecretKey getSecretKey() {
         return new SecretKeySpec(encryptionKey.getBytes(), "AES");
     }
+
 }

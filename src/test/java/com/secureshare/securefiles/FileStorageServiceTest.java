@@ -125,7 +125,7 @@ class FileStorageServiceTest {
 
         fileStorageService.deleteFile(1L);
 
-        verify(sharedFileRepository).deleteByFile(file); // This is the line that failed before
+        verify(sharedFileRepository).deleteByFile(file);
         verify(fileRepository).delete(file);
     }
 

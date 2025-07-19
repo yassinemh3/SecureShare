@@ -73,6 +73,7 @@ public class SecurityConfiguration {
                                 .requestMatchers(GET, "/api/v1/files/**").hasAuthority("file:download")
                                 .requestMatchers(POST, "/api/v1/files/**").hasAuthority("file:upload")
                                 .requestMatchers(DELETE, "/api/v1/files/**").hasAuthority("file:delete")
+                                .requestMatchers(GET, "/api/v1/files/search").hasAuthority("file:search")
 
                                 // Admin endpoints
                                 .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
