@@ -40,6 +40,7 @@ const Home: React.FC<HomeProps> = ({ onLogout, token }) => {
   const [decryptModalOpen, setDecryptModalOpen] = useState(false);
   const [pendingFile, setPendingFile] = useState<{ id: number; filename: string } | null>(null);
 
+
   const fetchFiles = async () => {
     try {
       const res = await fetch('http://localhost:8080/api/v1/files', {
@@ -85,6 +86,22 @@ const Home: React.FC<HomeProps> = ({ onLogout, token }) => {
 
       fetchSharedLinks();
     }, [token]);
+
+    const handleSearch = async (query: string) => {
+      try {
+        const params = new URLSearchParams({ query });
+        const res = await fetch(`http://localhost:8080/api/v1/files/search?${params}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (res.ok) {
+          const results = await res.json();
+          setFiles(results);
+        }
+      } catch (error) {
+        setMessage("Search failed: " + (error as Error).message);
+      }
+    };
 
     const handleRevokeShare = async (shareId: string) => {
       try {
@@ -343,6 +360,7 @@ const Home: React.FC<HomeProps> = ({ onLogout, token }) => {
 
           <FileList
             files={files}
+            onSearch={handleSearch}
             sharedLinks={sharedLinks}
             onDownload={handleDownload}
             onDelete={handleDelete}

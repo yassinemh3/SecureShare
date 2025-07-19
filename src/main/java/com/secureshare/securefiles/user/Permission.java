@@ -11,6 +11,7 @@ public enum Permission {
     FILE_DOWNLOAD("file:download"),
     FILE_DELETE("file:delete"),
     FILE_SHARE("file:share"),
+    FILE_SEARCH("file:search"),
 
     ADMIN_DASHBOARD("admin:dashboard"),
     ADMIN_READ("admin:read"),

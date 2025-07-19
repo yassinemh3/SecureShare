@@ -18,7 +18,8 @@ public enum Role {
                 FILE_UPLOAD,
                 FILE_DOWNLOAD,
                 FILE_DELETE,
-                FILE_SHARE
+                FILE_SHARE,
+                FILE_SEARCH
         )),
         ADMIN(Set.of(
                 FILE_UPLOAD,
@@ -29,7 +30,8 @@ public enum Role {
                 ADMIN_READ,
                 ADMIN_CREATE,
                 ADMIN_UPDATE,
-                ADMIN_DELETE
+                ADMIN_DELETE,
+                FILE_SEARCH
         ));
 
         @Getter

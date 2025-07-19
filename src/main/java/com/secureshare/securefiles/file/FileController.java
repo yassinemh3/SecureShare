@@ -10,10 +10,22 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+// For Specifications
+import org.springframework.data.jpa.domain.Specification;
+import jakarta.persistence.criteria.Predicate;
+
+// For pagination
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
+
+// For date handling
+import org.springframework.format.annotation.DateTimeFormat;
+import java.time.LocalDateTime;
 
 import java.io.FileNotFoundException;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/files")
@@ -86,5 +98,81 @@ public class FileController {
         } catch (Exception e) {
             return ResponseEntity.internalServerError().build();
         }
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<List<FileResponseDTO>> searchFiles(
+            @RequestParam(required = false) String filename,
+            @RequestParam(required = false) String contentType,
+            @RequestParam(required = false) Long minSize,
+            @RequestParam(required = false) Long maxSize,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
+            @PageableDefault(size = 20) Pageable pageable) {
+
+        User user = getCurrentUser();
+
+        Page<FileEntity> files = fileRepository.findAll(
+                createSearchSpecification(user, filename, contentType, minSize, maxSize, startDate, endDate),
+                pageable
+        );
+
+        return ResponseEntity.ok(
+                files.getContent()
+                        .stream()
+                        .map(FileResponseDTO::fromEntity)
+                        .toList()
+        );
+    }
+
+    private User getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return (User) authentication.getPrincipal();
+    }
+
+    private Specification<FileEntity> createSearchSpecification(
+            User user,
+            String filename,
+            String contentType,
+            Long minSize,
+            Long maxSize,
+            LocalDateTime startDate,
+            LocalDateTime endDate) {
+
+        return (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            // Mandatory user filter
+            predicates.add(cb.equal(root.get("user"), user));
+
+            if (filename != null && !filename.isBlank()) {
+                predicates.add(cb.like(
+                        cb.lower(root.get("originalFilename")),
+                        "%" + filename.toLowerCase() + "%"
+                ));
+            }
+
+            if (contentType != null && !contentType.isBlank()) {
+                predicates.add(cb.equal(root.get("contentType"), contentType));
+            }
+
+            if (minSize != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("size"), minSize));
+            }
+
+            if (maxSize != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("size"), maxSize));
+            }
+
+            if (startDate != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("uploadedAt"), startDate));
+            }
+
+            if (endDate != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("uploadedAt"), endDate));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
     }
 }
