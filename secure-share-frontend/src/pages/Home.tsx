@@ -40,6 +40,7 @@ const Home: React.FC<HomeProps> = ({ onLogout, token }) => {
   const [decryptModalOpen, setDecryptModalOpen] = useState(false);
   const [pendingFile, setPendingFile] = useState<{ id: number; filename: string } | null>(null);
 
+  const [fileContents, setFileContents] = useState<Record<number, string>>({});
 
   const fetchFiles = async () => {
     try {
@@ -57,6 +58,7 @@ const Home: React.FC<HomeProps> = ({ onLogout, token }) => {
           }));
 
           setFiles(processedFiles);
+          return processedFiles;
 
       } else if (res.status === 401) {
         onLogout();
@@ -153,43 +155,63 @@ const Home: React.FC<HomeProps> = ({ onLogout, token }) => {
     setSelectedFile(e.target.files?.[0] || null);
   };
 
-  const handleUpload = async (zkeOptions?: { useZKE: boolean; passphrase: string }) => {
-    if (!selectedFile) {
-      setMessage('Please select a file.');
-      return;
-    }
-
-    const formData = new FormData();
-    try {
-      if (zkeOptions?.useZKE) {
-        const encryptedBlob = await encryptFile(selectedFile, zkeOptions.passphrase);
-        formData.append('file', encryptedBlob, selectedFile.name + ".enc");
-        formData.append("zke", "true");
-      } else {
-        formData.append('file', selectedFile);
+    const handleUpload = async (zkeOptions?: { useZKE: boolean; passphrase: string }) => {
+      if (!selectedFile) {
+        setMessage('Please select a file.');
+        return;
       }
 
-      const res = await fetch('http://localhost:8080/api/v1/files/upload', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
+      const formData = new FormData();
+      try {
+        // Extract text content if it's a text file (before potential encryption)
+        let fileContent = '';
+        if (selectedFile.type === 'text/plain') {
+          fileContent = await selectedFile.text();
+        }
 
-      const responseData = await res.json().catch(async () => ({
-        message: await res.text()
-      }));
+        if (zkeOptions?.useZKE) {
+          const encryptedBlob = await encryptFile(selectedFile, zkeOptions.passphrase);
+          formData.append('file', encryptedBlob, selectedFile.name + ".enc");
+          formData.append("zke", "true");
+        } else {
+          formData.append('file', selectedFile);
+        }
 
-      if (res.ok) {
-        setMessage(responseData.message || 'Upload successful!');
-        setSelectedFile(null);
-        await fetchFiles();
-      } else {
-        setMessage(`Upload failed: ${responseData.message || 'Unknown error'}`);
+        const res = await fetch('http://localhost:8080/api/v1/files/upload', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
+        });
+
+        const responseData = await res.json().catch(async () => ({
+          message: await res.text()
+        }));
+
+        if (res.ok) {
+          setMessage(responseData.message || 'Upload successful!');
+          setSelectedFile(null);
+
+          // Refresh the files list which will include the new file
+          const updatedFiles = await fetchFiles();
+
+          // Find the newest file (assuming it's the one just uploaded)
+          if (fileContent && updatedFiles.length > 0) {
+            const newestFile = updatedFiles.reduce((latest, current) =>
+              new Date(current.uploadedAt) > new Date(latest.uploadedAt) ? current : latest
+            );
+
+            setFileContents(prev => ({
+              ...prev,
+              [newestFile.id]: fileContent
+            }));
+          }
+        } else {
+          setMessage(`Upload failed: ${responseData.message || 'Unknown error'}`);
+        }
+      } catch (err) {
+        setMessage('Upload error: ' + (err as Error).message);
       }
-    } catch (err) {
-      setMessage('Upload error: ' + (err as Error).message);
-    }
-  };
+    };
 
     const handleDownload = async (fileId: number, filename: string, isZke?: boolean) => {
 
@@ -359,7 +381,10 @@ const Home: React.FC<HomeProps> = ({ onLogout, token }) => {
           />
 
           <FileList
-            files={files}
+           files={files.map(file => ({
+               ...file,
+               content: fileContents[file.id]
+             }))}
             onSearch={handleSearch}
             sharedLinks={sharedLinks}
             onDownload={handleDownload}
