@@ -6,7 +6,8 @@ import { Toaster } from "@/components/ui/sonner";
 import { encryptFile } from "../lib/zkeEncrypt";
 import { decryptFile } from "../lib/zkeDecrypt";
 import DecryptModal from "../components/DecryptModal";
-
+import {LinkIcon } from "lucide-react";
+import SharedLinkItem from '../components/SharedLinkItem';
 interface HomeProps {
   onLogout: () => void;
   token: string;
@@ -352,46 +353,81 @@ const Home: React.FC<HomeProps> = ({ onLogout, token }) => {
       }
     };
 
-  return (
+ return (
     <div className="min-h-screen bg-gray-50">
-      <header className="sticky top-0 z-10 bg-white shadow p-4 flex justify-between items-center">
-        <h2 className="text-lg font-semibold">Hi, {username}</h2>
-        <button
-          onClick={onLogout}
-          className="bg-red-500 text-white py-1 px-4 rounded hover:bg-red-600 transition"
-        >
-          Logout
-        </button>
+      <header className="sticky top-0 z-10 bg-white shadow-sm p-4">
+        <div className="max-w-7xl mx-auto flex justify-between items-center">
+          <h1 className="text-xl font-bold text-blue-600">SecureShare</h1>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-gray-600">Hi, {username}</span>
+            <button
+              onClick={onLogout}
+              className="text-sm text-red-600 hover:text-red-700 hover:bg-red-50 py-1 px-3 rounded-lg transition"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
       </header>
 
-      <main className="flex flex-col items-center px-4 pt-6 pb-12">
-        <div className="w-full max-w-2xl bg-white shadow-md rounded-lg p-6 space-y-6">
-          <Toaster position="top-center" richColors />
-          <h1 className="text-2xl font-bold text-center">SecureShare Dashboard</h1>
+      <main className="max-w-7xl mx-auto px-4 py-8">
+        <Toaster position="top-center" richColors />
 
+        {/* Upload Section */}
+        <div className="bg-white rounded-2xl shadow-sm p-6 mb-8">
+          <h2 className="text-lg font-semibold mb-4">Upload Files</h2>
           <FileUploadForm
             onFileChange={handleFileChange}
             onUpload={handleUpload}
             selectedFile={selectedFile}
           />
-
           <StatusMessage
             message={message}
             type={message.includes('success') || message.includes('deleted') ? 'success' : 'error'}
           />
+        </div>
 
-          <FileList
-           files={files.map(file => ({
-               ...file,
-               content: fileContents[file.id]
-             }))}
-            onSearch={handleSearch}
-            sharedLinks={sharedLinks}
-            onDownload={handleDownload}
-            onDelete={handleDelete}
-            onShare={handleShare}
-            onRevokeShare={handleRevokeShare}
-          />
+        {/* File and Shared Links Sections - Side by Side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Files Section */}
+          <div className="bg-white rounded-2xl shadow-sm p-6">
+            <FileList
+              files={files.map(file => ({
+                ...file,
+                content: fileContents[file.id]
+              }))}
+              onSearch={handleSearch}
+              sharedLinks={sharedLinks}
+              onDownload={handleDownload}
+              onDelete={handleDelete}
+              onShare={handleShare}
+              onRevokeShare={handleRevokeShare}
+            />
+          </div>
+
+          {/* Shared Links Section */}
+          <div className="bg-white rounded-2xl shadow-sm p-6">
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <LinkIcon className="h-5 w-5 text-blue-500" />
+              Shared Links
+            </h2>
+            {sharedLinks.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground flex flex-col items-center gap-2">
+                <LinkIcon className="h-8 w-8 text-gray-300" />
+                <p>No active shared links</p>
+              </div>
+            ) : (
+              <ul className="space-y-3">
+                {sharedLinks.map(link => (
+                  <SharedLinkItem
+                    key={link.id}
+                    link={link}
+                    onRevoke={handleRevokeShare}
+                  />
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       </main>
 
