@@ -1,7 +1,7 @@
 import { HfInference } from '@huggingface/inference';
 
 // Better to use environment variable for the token
-const HF_TOKEN = "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";
+const HF_TOKEN = process.env.NEXT_PUBLIC_HF_TOKEN;
 const hf = new HfInference(HF_TOKEN);
 
 export const summarizeDocument = async (text: string) => {
