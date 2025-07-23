@@ -3,10 +3,16 @@
 import { useCallback, useState } from "react"
 import { useDropzone } from "react-dropzone"
 import { Button } from "@/components/ui/button"
-import { UploadIcon, LockIcon } from "lucide-react"
+import { UploadIcon, LockIcon, InfoIcon } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 interface FileUploadFormProps {
   onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -56,6 +62,19 @@ const FileUploadForm = ({ onFileChange, onUpload, selectedFile }: FileUploadForm
             <LockIcon className="h-4 w-4" />
             Enable Zero-Knowledge Encryption
           </Label>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <InfoIcon className="h-4 w-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-[300px]">
+                <p className="text-sm">
+                  Zero-Knowledge Encryption means your files are encrypted before upload and only you
+                  can decrypt them with your passphrase. Even we can't access your files without it.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
 
         {useZKE && (

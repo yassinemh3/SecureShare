@@ -8,6 +8,16 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
@@ -53,6 +63,7 @@ const FileItem: React.FC<FileItemProps> = ({ file, onDownload, onDelete, onShare
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState("");
   const [showSummary, setShowSummary] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const { isProcessing, result, summarize } = useAiProcessing();
 
   const handleShare = async () => {
@@ -133,12 +144,8 @@ const FileItem: React.FC<FileItemProps> = ({ file, onDownload, onDelete, onShare
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem
-                  onClick={() => {
-                    if (window.confirm(`Delete "${file.originalFilename}"?`)) {
-                      onDelete(file.id);
-                    }
-                  }}
-                  className="text-red-500"
+                  onClick={() => setShowDeleteDialog(true)}
+                  className="text-red-500 focus:text-red-500 focus:bg-red-50"
                 >
                   <Trash2 className="mr-2 h-4 w-4" />
                   Delete
@@ -149,104 +156,124 @@ const FileItem: React.FC<FileItemProps> = ({ file, onDownload, onDelete, onShare
         </div>
       </Card>
 
-    {/* Share Dialog */}
-    <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
-      <DialogContent className="sm:max-w-md w-full max-w-[90vw] rounded-lg">
-        <DialogHeader>
-          <DialogTitle className="text-lg">Share: {file.originalFilename}</DialogTitle>
-        </DialogHeader>
+      {/* Share Dialog */}
+      <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
+        <DialogContent className="sm:max-w-md w-full max-w-[90vw] rounded-lg">
+          <DialogHeader>
+            <DialogTitle className="text-lg">Share: {file.originalFilename}</DialogTitle>
+          </DialogHeader>
 
-        <div className="space-y-4 py-4 w-full">
-          <div className="space-y-2">
-            <Label htmlFor="password">Password (optional)</Label>
-            <Input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Add protection"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="expiry">Expiry in minutes (optional)</Label>
-            <Input
-              id="expiry"
-              type="number"
-              value={expiryMinutes}
-              onChange={(e) => setExpiryMinutes(e.target.value)}
-              placeholder="e.g. 60"
-            />
-          </div>
-
-          <Button onClick={handleShare} className="w-full">
-            <Link2 className="mr-2 h-4 w-4" />
-            Generate Link
-          </Button>
-        </div>
-
-        {shareLink && (
-          <>
-            <div className="border-t pt-4 w-full">
-              <Card className="w-full">
-                <CardContent className="p-4 space-y-4 w-full">
-                  <div className="flex items-start gap-2 w-full">
-                    <div className="flex-1 bg-muted p-2 rounded-md overflow-hidden min-w-0 max-w-full">
-                      <p className="text-sm font-mono break-all whitespace-pre-wrap">{shareLink}</p>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        navigator.clipboard.writeText(shareLink);
-                        toast.success("Link copied to clipboard");
-                      }}
-                      className="flex-shrink-0 mt-0"
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </div>
-
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
-                    {password && (
-                      <Badge variant="outline" className="gap-1">
-                        <Lock className="h-3 w-3" />
-                        Protected
-                      </Badge>
-                    )}
-                    {expiryMinutes && (
-                      <Badge variant="outline" className="gap-1">
-                        <Clock className="h-3 w-3" />
-                        Expires in {expiryMinutes} mins
-                      </Badge>
-                    )}
-                  </div>
-
-                  {qrCodeUrl && (
-                    <div className="mt-4 flex justify-center w-full">
-                      <img
-                        src={qrCodeUrl}
-                        alt="QR Code"
-                        className="w-32 h-32 border rounded-lg"
-                      />
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+          <div className="space-y-4 py-4 w-full">
+            <div className="space-y-2">
+              <Label htmlFor="password">Password (optional)</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Add protection"
+              />
             </div>
-            <DialogFooter className="w-full">
-              <Button
-                variant="secondary"
-                onClick={() => setShowShareDialog(false)}
-                className="w-full"
-              >
-                Close
-              </Button>
-            </DialogFooter>
-          </>
-        )}
-      </DialogContent>
-    </Dialog>
+
+            <div className="space-y-2">
+              <Label htmlFor="expiry">Expiry in minutes (optional)</Label>
+              <Input
+                id="expiry"
+                type="number"
+                value={expiryMinutes}
+                onChange={(e) => setExpiryMinutes(e.target.value)}
+                placeholder="e.g. 60"
+              />
+            </div>
+
+            <Button onClick={handleShare} className="w-full">
+              <Link2 className="mr-2 h-4 w-4" />
+              Generate Link
+            </Button>
+          </div>
+
+          {shareLink && (
+            <>
+              <div className="border-t pt-4 w-full">
+                <Card className="w-full">
+                  <CardContent className="p-4 space-y-4 w-full">
+                    <div className="flex items-start gap-2 w-full">
+                      <div className="flex-1 bg-muted p-2 rounded-md overflow-hidden min-w-0 max-w-full">
+                        <p className="text-sm font-mono break-all whitespace-pre-wrap">{shareLink}</p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(shareLink);
+                          toast.success("Link copied to clipboard");
+                        }}
+                        className="flex-shrink-0 mt-0"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                      {password && (
+                        <Badge variant="outline" className="gap-1">
+                          <Lock className="h-3 w-3" />
+                          Protected
+                        </Badge>
+                      )}
+                      {expiryMinutes && (
+                        <Badge variant="outline" className="gap-1">
+                          <Clock className="h-3 w-3" />
+                          Expires in {expiryMinutes} mins
+                        </Badge>
+                      )}
+                    </div>
+
+                    {qrCodeUrl && (
+                      <div className="mt-4 flex justify-center w-full">
+                        <img
+                          src={qrCodeUrl}
+                          alt="QR Code"
+                          className="w-32 h-32 border rounded-lg"
+                        />
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+              <DialogFooter className="w-full">
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowShareDialog(false)}
+                  className="w-full"
+                >
+                  Close
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete "{file.originalFilename}" and cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => onDelete(file.id)}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Summary panel */}
       {showSummary && file.content && (

@@ -56,7 +56,7 @@ const Register: React.FC<AuthProps> = ({ onAuthSuccess }) => {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleRegister} className="space-y-4">
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="firstname">First Name</Label>
               <Input
                 type="text"
@@ -69,7 +69,7 @@ const Register: React.FC<AuthProps> = ({ onAuthSuccess }) => {
               />
             </div>
 
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="lastname">Last Name</Label>
               <Input
                 type="text"
@@ -82,7 +82,7 @@ const Register: React.FC<AuthProps> = ({ onAuthSuccess }) => {
               />
             </div>
 
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
                 type="email"
@@ -95,7 +95,7 @@ const Register: React.FC<AuthProps> = ({ onAuthSuccess }) => {
               />
             </div>
 
-            <div>
+            <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <Input
                 type="password"
