@@ -163,15 +163,15 @@ npm run dev
 
 ### 🔐 Login Page
 
-![Login Page](./assets/login.png)
+![Login Page](./assets/login1.png)
 
 ### 🏠 Home Page
 
-![Home Page](./assets/home_pg.png)
+![Home Page](./assets/home1.png)
 
 ### 📤 Share Link & QR Code
 
-![Sharepage](./assets/Sharepage.png)
+![Sharepage](./assets/sharelink.png)
 
 ---
 
