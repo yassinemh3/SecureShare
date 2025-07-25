@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 public enum Permission {
 
     // File-related permissions
+    FILE_READ("file:read"),
     FILE_UPLOAD("file:upload"),
     FILE_DOWNLOAD("file:download"),
     FILE_DELETE("file:delete"),

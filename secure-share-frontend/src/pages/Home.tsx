@@ -284,30 +284,51 @@ const Home: React.FC<HomeProps> = ({ onLogout, token }) => {
     }
   };
 
-  const handleDelete = async (fileId: number) => {
+const handleDelete = async (fileId: number) => {
     try {
       const res = await fetch(`http://localhost:8080/api/v1/files/${fileId}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include'
       });
 
       if (res.status === 403) {
-        setMessage('You are not authorized to delete this file.');
+        const errorData = await res.json();
+        setMessage(errorData.message || 'You are not authorized to delete this file.');
+        return;
+      }
+
+      if (res.status === 404) {
+        setMessage('File not found');
         return;
       }
 
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        setMessage(errorData.message || 'Failed to delete file.');
-        return;
+        throw new Error(`HTTP error! status: ${res.status}`);
       }
 
       setMessage('File deleted successfully.');
-      fetchFiles();
+        // Refresh both files and shared links
+      await Promise.all([
+          fetchFiles(),
+          fetchSharedLinks()
+      ]);
+
     } catch (error) {
-      setMessage('Error deleting file: ' + (error as Error).message);
+      if (error instanceof Error) {
+        if (error.message.includes('Unauthorized deletion attempt')) {
+          setMessage('You are not authorized to delete this file.');
+        } else {
+          setMessage('Error deleting file: ' + error.message);
+        }
+      } else {
+        setMessage('An unknown error occurred');
+      }
     }
-  };
+};
 
     const handleShare = async (fileId: number, data: { password?: string; expiryMinutes?: number }): Promise<string> => {
       try {

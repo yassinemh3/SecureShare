@@ -15,6 +15,7 @@ import static com.secureshare.securefiles.user.Permission.*;
 public enum Role {
 
         USER(Set.of(
+                FILE_READ,
                 FILE_UPLOAD,
                 FILE_DOWNLOAD,
                 FILE_DELETE,
@@ -22,6 +23,7 @@ public enum Role {
                 FILE_SEARCH
         )),
         ADMIN(Set.of(
+                FILE_READ,
                 FILE_UPLOAD,
                 FILE_DOWNLOAD,
                 FILE_DELETE,

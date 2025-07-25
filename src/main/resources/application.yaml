@@ -13,4 +13,14 @@ spring:
         format_sql: true
     database: postgresql
     database-platform: org.hibernate.dialect.PostgreSQLDialect
+    retry:
+      max-attempts: 3
+      max-delay: 1000
+resilience4j:
+  ratelimiter:
+    instances:
+      fileUpload:
+        limit-for-period: 10       # Max 10 requests per time window
+        limit-refresh-period: 1m   # Time window = 1 minute
+        timeout-duration: 500ms    # Max wait time for a permit
 

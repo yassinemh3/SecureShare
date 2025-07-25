@@ -1,5 +1,7 @@
 package com.secureshare.securefiles.config;
 
+import com.secureshare.securefiles.file.FileRepository;
+import com.secureshare.securefiles.service.FileSecurityService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -27,7 +29,7 @@ import static org.springframework.security.config.http.SessionCreationPolicy.STA
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
-@EnableMethodSecurity
+@EnableMethodSecurity(prePostEnabled = true)
 public class SecurityConfiguration {
 
         private static final String[] WHITE_LIST_URL = {
@@ -70,6 +72,7 @@ public class SecurityConfiguration {
                                 .requestMatchers(GET, "/api/v1/share").authenticated()
 
                                 // File operations
+                                .requestMatchers(GET, "/api/v1/files/**").hasAuthority("file:read")
                                 .requestMatchers(GET, "/api/v1/files/**").hasAuthority("file:download")
                                 .requestMatchers(POST, "/api/v1/files/**").hasAuthority("file:upload")
                                 .requestMatchers(DELETE, "/api/v1/files/**").hasAuthority("file:delete")
@@ -107,5 +110,9 @@ public class SecurityConfiguration {
                 UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
                 source.registerCorsConfiguration("/**", configuration);
                 return source;
+        }
+        @Bean
+        public FileSecurityService fileSecurityService(FileRepository fileRepository) {
+                return new FileSecurityService(fileRepository);
         }
 }
