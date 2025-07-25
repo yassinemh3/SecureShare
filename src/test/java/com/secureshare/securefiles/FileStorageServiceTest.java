@@ -1,18 +1,23 @@
 package com.secureshare.securefiles;
 
-import com.secureshare.securefiles.file.*;
+import com.secureshare.securefiles.file.FileEntity;
+import com.secureshare.securefiles.file.FileRepository;
+import com.secureshare.securefiles.file.FileStorageService;
+import com.secureshare.securefiles.file.SharedFileRepository;
+import com.secureshare.securefiles.service.*;
+import com.secureshare.securefiles.service.exception.*;
 import com.secureshare.securefiles.user.User;
-
 import org.junit.jupiter.api.*;
 import org.mockito.*;
-
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.io.IOException;
-import java.lang.reflect.Field;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -30,35 +35,48 @@ class FileStorageServiceTest {
     @Mock
     private SharedFileRepository sharedFileRepository;
 
-    private static final String FAKE_ENCRYPTION_KEY = "1234567890123456"; // 16 chars for AES
+    @Mock
+    private EncryptionService encryptionService;
+
+    @Mock
+    private FileValidator fileValidator;
+
+    @Mock
+    private AuditService auditService;
+
+    private static final String TEST_UPLOAD_DIR = "test-uploads";
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() throws IOException {
         MockitoAnnotations.openMocks(this);
 
-        // Manually set encryptionKey via reflection
-        Field field = FileStorageService.class.getDeclaredField("encryptionKey");
-        field.setAccessible(true);
-        field.set(fileStorageService, FAKE_ENCRYPTION_KEY);
+        // Initialize test upload directory
+        Path uploadDir = Path.of(TEST_UPLOAD_DIR);
+        if (!Files.exists(uploadDir)) {
+            Files.createDirectories(uploadDir);
+        }
+
+        // Set test upload directory
+        ReflectionTestUtils.setField(fileStorageService, "uploadDir", uploadDir);
     }
 
     @AfterEach
-    void clearContext() {
-        SecurityContextHolder.clearContext();
-    }
-
-    private void mockAuthenticatedUser(User user) {
-        Authentication authentication = mock(Authentication.class);
-        when(authentication.getPrincipal()).thenReturn(user);
-
-        SecurityContext context = mock(SecurityContext.class);
-        when(context.getAuthentication()).thenReturn(authentication);
-
-        SecurityContextHolder.setContext(context);
+    void tearDown() throws IOException {
+        // Clean up test files
+        Files.walk(Path.of(TEST_UPLOAD_DIR))
+                .filter(Files::isRegularFile)
+                .forEach(path -> {
+                    try {
+                        Files.delete(path);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                });
     }
 
     @Test
     void testSaveFile_success() throws Exception {
+        // Given
         MockMultipartFile mockFile = new MockMultipartFile(
                 "file", "test.txt", "text/plain", "Hello World".getBytes()
         );
@@ -67,51 +85,59 @@ class FileStorageServiceTest {
         user.setId(1);
         user.setEmail("test@example.com");
 
-        mockAuthenticatedUser(user);
+        String expectedStoredFilename = "uuid_123456789_test.txt";
+        byte[] encryptedData = "encrypted-data".getBytes();
+
+        // When
+        when(encryptionService.encrypt(any())).thenReturn(encryptedData);
 
         FileEntity savedFile = FileEntity.builder()
                 .id(1L)
                 .originalFilename("test.txt")
-                .storedFilename("uuid-test.txt")
+                .storedFilename(expectedStoredFilename)
                 .contentType("text/plain")
-                .size(11)
+                .size(11L)
                 .uploadedAt(LocalDateTime.now())
                 .user(user)
                 .build();
 
         when(fileRepository.save(any())).thenReturn(savedFile);
 
-        FileEntity result = fileStorageService.saveFile(mockFile);
+        // Then
+        FileEntity result = fileStorageService.saveFile(mockFile, user);
 
         assertNotNull(result);
         assertEquals("test.txt", result.getOriginalFilename());
+        verify(encryptionService).encrypt(mockFile.getBytes());
+        verify(auditService).logUpload(user, result);
     }
 
     @Test
     void testGetFileContent_success() throws Exception {
         // Given
         FileEntity file = FileEntity.builder()
-                .storedFilename("file.txt")
+                .storedFilename("test.txt")
                 .build();
 
-        fileStorageService = spy(fileStorageService);
-        byte[] expectedContent = "Test content".getBytes();
+        byte[] encryptedData = "encrypted-data".getBytes();
+        byte[] decryptedData = "Hello World".getBytes();
 
-        doReturn(expectedContent).when(fileStorageService).getFileContent(file);
+        Path filePath = Path.of(TEST_UPLOAD_DIR, file.getStoredFilename());
+        Files.write(filePath, encryptedData);
 
         // When
-        byte[] result = fileStorageService.getFileContent(file);
+        when(encryptionService.decrypt(encryptedData)).thenReturn(decryptedData);
 
         // Then
-        assertNotNull(result);
-        assertArrayEquals(expectedContent, result);
+        byte[] result = fileStorageService.getFileContent(file);
+        assertArrayEquals(decryptedData, result);
     }
 
     @Test
-    void testDeleteFile_success() {
+    void testDeleteFile_success() throws Exception {
+        // Given
         User user = new User();
         user.setId(1);
-        user.setEmail("user@example.com");
 
         FileEntity file = FileEntity.builder()
                 .id(1L)
@@ -119,14 +145,19 @@ class FileStorageServiceTest {
                 .user(user)
                 .build();
 
+        Path filePath = Path.of(TEST_UPLOAD_DIR, file.getStoredFilename());
+        Files.write(filePath, "test-data".getBytes());
+
         when(fileRepository.findById(1L)).thenReturn(Optional.of(file));
 
-        mockAuthenticatedUser(user);
+        // When
+        fileStorageService.deleteFile(1L, user);
 
-        fileStorageService.deleteFile(1L);
-
+        // Then
         verify(sharedFileRepository).deleteByFile(file);
         verify(fileRepository).delete(file);
+        verify(auditService).logDeletion(user, file);
+        assertFalse(Files.exists(filePath));
     }
 
     @Test
@@ -136,7 +167,29 @@ class FileStorageServiceTest {
 
         // Then
         assertThrows(FileStorageService.FileNotFoundException.class, () -> {
-            fileStorageService.deleteFile(999L);
+            fileStorageService.deleteFile(999L, new User());
+        });
+    }
+
+    @Test
+    void testDeleteFile_unauthorized() {
+        // Given
+        User owner = new User();
+        owner.setId(1);
+
+        User requester = new User();
+        requester.setId(2);
+
+        FileEntity file = FileEntity.builder()
+                .id(1L)
+                .user(owner)
+                .build();
+
+        when(fileRepository.findById(1L)).thenReturn(Optional.of(file));
+
+        // Then
+        assertThrows(SecurityException.class, () -> {
+            fileStorageService.deleteFile(1L, requester);
         });
     }
 }

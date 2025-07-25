@@ -13,14 +13,14 @@ spring:
         format_sql: true
     database: postgresql
     database-platform: org.hibernate.dialect.PostgreSQLDialect
+    retry:
+      max-attempts: 3
+      max-delay: 1000
 
-application:
-  security:
-    jwt:
-      secret-key: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-      expiration: 86400000 # a day
-      refresh-token:
-        expiration: 604800000 # 7 days
-app:
-  encryption:
-    secret-key: 12345678901234567890123456789012  # 32 characters
+resilience4j:
+  ratelimiter:
+    instances:
+      fileUpload:
+        limit-for-period: 10       # Max 10 requests per time window
+        limit-refresh-period: 1m   # Time window = 1 minute
+        timeout-duration: 500ms    # Max wait time for a permit
