@@ -79,10 +79,6 @@
 
 ---
 
-Here's that entire section rewritten in proper `README.md` Markdown format, ready to paste directly into your `README.md` file:
-
----
-
 ## ⚙️ Setup Instructions
 
 ### 🔧 Backend (Spring Boot)
