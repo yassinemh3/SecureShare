@@ -31,7 +31,9 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDateTime;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/files")
@@ -45,14 +47,27 @@ public class FileController {
     @PostMapping("/upload")
     @RateLimiter(name = "fileUpload", fallbackMethod = "uploadRateLimitExceeded")
     @PreAuthorize("hasAuthority('file:upload')")
-    public ResponseEntity<FileResponseDTO> upload(
+    public ResponseEntity<?> upload(
             @RequestParam("file") MultipartFile file,
             @AuthenticationPrincipal User user) throws ValidationException {
+        try {
 
-        fileValidator.validate(file);
-        FileEntity saved = fileService.saveFile(file, user);
-        return ResponseEntity.ok(FileResponseDTO.fromEntity(saved));
-    }
+            fileValidator.validate(file);
+            FileEntity saved = fileService.saveFile(file, user);
+            return ResponseEntity.ok(FileResponseDTO.fromEntity(saved));
+
+        } catch (FileValidator.FileValidationException e) {
+            // Return the validation error with proper HTTP status
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", e.getMessage());
+            errorResponse.put("code", e.getErrorCode());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        } catch (Exception e) {
+            // Handle other exceptions
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "File upload failed", "details", e.getMessage()));
+        }
+}
 
     @GetMapping
     @PreAuthorize("hasAuthority('file:read')")

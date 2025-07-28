@@ -1,24 +1,29 @@
 package com.secureshare.securefiles.file;
 
+import com.secureshare.securefiles.dto.*;
 import com.secureshare.securefiles.util.QrCodeUtil;
-import com.secureshare.securefiles.dto.SharedFileDTO;
+import io.github.resilience4j.ratelimiter.annotation.RateLimiter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.*;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import com.secureshare.securefiles.user.User;
+import jakarta.validation.Valid;
+
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Base64;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
-import com.secureshare.securefiles.file.SharedFileRepository;
 
 @Slf4j
 @RestController
@@ -29,28 +34,26 @@ public class FileSharingController {
     private final FileSharingService sharingService;
     private final FileStorageService fileStorageService;
     private final FileRepository fileRepository;
+    private final ShareTokenService tokenService;
     private final SharedFileRepository sharedFileRepository;
 
     @PostMapping("/{fileId}")
-    public ResponseEntity<String> shareFile(
+    @RateLimiter(name = "fileSharing", fallbackMethod = "shareRateLimitExceeded")
+    @PreAuthorize("hasAuthority('file:share')")
+    public ResponseEntity<ShareResponseDTO> shareFile(
             @PathVariable Long fileId,
             @RequestParam(required = false) String password,
-            @RequestParam(defaultValue = "1440") long expiryMinutes // Default 24 hours
-    ) {
+            @RequestParam(defaultValue = "1440") long expiryMinutes,
+            @AuthenticationPrincipal User user) {
+
         try {
-            // Validate expiry time
-            if (expiryMinutes <= 0) {
-                throw new IllegalArgumentException("Expiry time must be positive");
-            }
-
-            // Verify file exists
-            if (!fileRepository.existsById(fileId)) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found");
-            }
-
-            String token = sharingService.generateShareLink(fileId, password, expiryMinutes);
-            String shareUrl = "http://localhost:5173/share/access/" + token;
-            return ResponseEntity.ok(shareUrl);
+            ShareResponseDTO response = sharingService.createShare(
+                    fileId,
+                    password,
+                    expiryMinutes,
+                    user
+            );
+            return ResponseEntity.ok(response);
         } catch (IllegalArgumentException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
         } catch (Exception e) {
@@ -60,6 +63,7 @@ public class FileSharingController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('file:share')")
     public ResponseEntity<Page<SharedFileDTO>> getUserSharedFiles(
             @AuthenticationPrincipal User user,
             @PageableDefault(size = 20) Pageable pageable) {
@@ -73,6 +77,7 @@ public class FileSharingController {
     }
 
     @DeleteMapping("/{token}")
+    @PreAuthorize("hasAuthority('file:share')")
     public ResponseEntity<Void> revokeShare(
             @PathVariable String token,
             @AuthenticationPrincipal User user) {
@@ -83,11 +88,11 @@ public class FileSharingController {
     @GetMapping("/access/{token}")
     public ResponseEntity<?> accessFile(
             @PathVariable String token,
-            @RequestParam(required = false) String password
-    ) {
+            @RequestParam(required = false) String password) {
+
         try {
-            // Validate token format (basic UUID check)
-            if (!token.matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")) {
+            // Validate token format
+            if (!tokenService.isValidTokenFormat(token)) {
                 log.warn("Invalid token format: {}", token);
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid token format");
             }
@@ -108,7 +113,7 @@ public class FileSharingController {
                     .body(new ByteArrayResource(content));
 
         } catch (ResponseStatusException e) {
-            throw e; // Re-throw existing status exceptions
+            throw e;
         } catch (Exception e) {
             log.error("File access error for token: {}", token, e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error accessing file");
@@ -119,11 +124,9 @@ public class FileSharingController {
     public ResponseEntity<ByteArrayResource> getQrCodeForToken(
             @PathVariable String token,
             @RequestParam(defaultValue = "300") int width,
-            @RequestParam(defaultValue = "300") int height
-    ) {
+            @RequestParam(defaultValue = "300") int height) {
         try {
-            // Basic token validation
-            if (token.length() != 36) { // UUID length
+            if (!tokenService.isValidTokenFormat(token)) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid token format");
             }
 
@@ -133,12 +136,58 @@ public class FileSharingController {
 
             return ResponseEntity.ok()
                     .contentType(MediaType.IMAGE_PNG)
-                    .cacheControl(CacheControl.maxAge(1, TimeUnit.HOURS)) // Cache QR codes
+                    .cacheControl(CacheControl.maxAge(1, TimeUnit.HOURS))
                     .body(new ByteArrayResource(decoded));
         } catch (Exception e) {
             log.error("QR generation failed for token: {}", token, e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Error generating QR code");
         }
+    }
+
+    @GetMapping("/info/{token}")
+    public ResponseEntity<ShareInfoDTO> getShareInfo(@PathVariable String token) {
+        Optional<ShareInfoDTO> info = sharingService.getShareInfo(token);
+
+        // Validate token format first
+        if (!tokenService.isValidTokenFormat(token)) {
+            log.warn("Invalid token format: {}", token);
+            return ResponseEntity.badRequest().build();
+        }
+
+        Optional<SharedFile> sharedFile = sharedFileRepository.findByToken(token);
+
+        if (sharedFile.isEmpty()) {
+            log.info("Share not found for token: {}", token);
+            return ResponseEntity.notFound().build();
+        }
+
+        SharedFile share = sharedFile.get();
+
+        // Check if share is active
+        if (!share.isActive()) {
+            log.info("Attempt to access revoked share with token: {}", token);
+            return ResponseEntity.status(HttpStatus.GONE).build(); // 410 Gone
+        }
+
+        // Check if share is expired
+        if (share.isExpired()) {
+            log.info("Attempt to access expired share with token: {}", token);
+            return ResponseEntity.status(HttpStatus.GONE).build(); // 410 Gone
+        }
+
+        // Log successful info request
+        log.debug("Share info retrieved for token: {}", token);
+
+        return info.map(ResponseEntity::ok)
+                .orElseGet(() -> {
+                    log.info("Invalid or expired share token: {}", token);
+                    return ResponseEntity.status(HttpStatus.GONE).build();
+                });
+    }
+
+    public ResponseEntity<String> shareRateLimitExceeded(Exception ex) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .body("Share creation rate limit exceeded. Please try again later.");
     }
 
     private String encodeFilename(String filename) {

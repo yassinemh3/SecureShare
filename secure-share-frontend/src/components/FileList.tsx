@@ -45,6 +45,11 @@ export const FileList = ({
     file.originalFilename.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Filter out shared links for deleted files
+    const validSharedLinks = safeSharedLinks.filter(link =>
+      safeFiles.some(file => file.id === link.fileId)
+    );
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center mb-4">

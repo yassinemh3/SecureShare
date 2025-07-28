@@ -1,6 +1,7 @@
 package com.secureshare.securefiles.file;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.secureshare.securefiles.file.FileEntity;
 import com.secureshare.securefiles.user.User;
 import jakarta.persistence.*;
 import lombok.*;
@@ -11,7 +12,7 @@ import java.time.LocalDateTime;
 import java.util.concurrent.TimeUnit;
 
 @Entity
-@Table(name = "shared_files") // Explicit table name
+@Table(name = "shared_files")
 @Data
 @Builder
 @NoArgsConstructor
@@ -30,14 +31,14 @@ public class SharedFile {
     @CreationTimestamp
     private LocalDateTime createdAt;
 
-    @Column(length = 512) // Space for encrypted password
-    @JsonIgnore // Never expose in responses
+    @Column(length = 512)
+    @JsonIgnore
     private String password;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "file_id", nullable = false)
     @ToString.Exclude
-    @JsonIgnore // Prevent circular references
+    @JsonIgnore
     private FileEntity file;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -46,19 +47,17 @@ public class SharedFile {
     @JsonIgnore
     private User sharedBy;
 
-    @Column(name = "is_active", columnDefinition = "boolean default true")
+    @Column(name = "is_active", nullable = false)
+    @Builder.Default // This is crucial
     private boolean active = true;
 
-    // Add this method
     @PrePersist
     protected void onCreate() {
         if (this.expiry == null) {
-            // Default 24 hour expiry if not set
             this.expiry = Instant.now().plusSeconds(TimeUnit.HOURS.toSeconds(24));
         }
     }
 
-    // Helper methods
     public boolean isExpired() {
         return expiry != null && Instant.now().isAfter(expiry);
     }

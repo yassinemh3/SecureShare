@@ -17,6 +17,7 @@ public class SharedFileDTO {
     private final Instant expiryDate;
     private final boolean hasPassword;
     private final String shareUrl;
+    private String qrCodeUrl;
     private final LocalDateTime createdAt;
     private final Long fileId;
     private final String fileContentType;
@@ -31,6 +32,7 @@ public class SharedFileDTO {
                 .expiryDate(sharedFile.getExpiry())
                 .hasPassword(sharedFile.getPassword() != null)
                 .shareUrl("http://localhost:5173/share/access/" + sharedFile.getToken())
+                .qrCodeUrl("http://localhost:8080/api/v1/share/qr/" + sharedFile.getToken())
                 .createdAt(sharedFile.getCreatedAt())
                 .fileId(file.getId())
                 .fileContentType(file.getContentType())

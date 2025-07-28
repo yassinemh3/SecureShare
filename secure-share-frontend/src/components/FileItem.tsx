@@ -57,8 +57,10 @@ interface FileItemProps {
 }
 
 const FileItem: React.FC<FileItemProps> = ({ file, onDownload, onDelete, onShare }) => {
-  const [password, setPassword] = useState("");
-  const [expiryMinutes, setExpiryMinutes] = useState("");
+    const [passwordError, setPasswordError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+    const [password, setPassword] = useState("");
+    const [expiryMinutes, setExpiryMinutes] = useState("");
   const [shareLink, setShareLink] = useState("");
   const [showShareDialog, setShowShareDialog] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState("");
@@ -66,21 +68,38 @@ const FileItem: React.FC<FileItemProps> = ({ file, onDownload, onDelete, onShare
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const { isProcessing, result, summarize } = useAiProcessing();
 
-  const handleShare = async () => {
-    try {
-      const data = {
-        ...(password && { password }),
-        ...(expiryMinutes && { expiryMinutes: Number(expiryMinutes) }),
-      };
-      const link = await onShare(file.id, data);
-      setShareLink(link);
+ const handleShare = async () => {
+   setPasswordError("");
+   setIsSubmitting(true);
 
-      const token = link.split("/").pop();
-      setQrCodeUrl(`http://localhost:8080/api/v1/share/qr/${token}`);
-    } catch (error) {
-      console.error("Failed to generate share link:", error);
-    }
-  };
+   try {
+     // Basic validation
+     if (password && password.length < 4) {
+       setPasswordError("Password must be at least 4 characters");
+       return;
+     }
+
+     const data = {
+       ...(password && { password }),
+       ...(expiryMinutes && { expiryMinutes: Number(expiryMinutes) }),
+     };
+
+     const link = await onShare(file.id, data);
+     setShareLink(link);
+
+     const token = link.split("/").pop();
+     setQrCodeUrl(`http://localhost:8080/api/v1/share/qr/${token}`);
+
+     // Reset form after successful share
+     setPassword("");
+     setExpiryMinutes("");
+   } catch (error) {
+     console.error("Failed to generate share link:", error);
+     toast.error("Failed to create share link");
+   } finally {
+     setIsSubmitting(false);
+   }
+ };
 
   const handleSummaryRequest = async () => {
     if (!file.content) return;
@@ -156,104 +175,122 @@ const FileItem: React.FC<FileItemProps> = ({ file, onDownload, onDelete, onShare
         </div>
       </Card>
 
-      {/* Share Dialog */}
-      <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
-        <DialogContent className="sm:max-w-md w-full max-w-[90vw] rounded-lg">
-          <DialogHeader>
-            <DialogTitle className="text-lg">Share: {file.originalFilename}</DialogTitle>
-          </DialogHeader>
+        {/* Share Dialog */}
+        <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
+          <DialogContent className="sm:max-w-md w-full max-w-[90vw] rounded-lg">
+            <DialogHeader>
+              <DialogTitle className="text-lg">Share: {file.originalFilename}</DialogTitle>
+            </DialogHeader>
 
-          <div className="space-y-4 py-4 w-full">
-            <div className="space-y-2">
-              <Label htmlFor="password">Password (optional)</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Add protection"
-              />
-            </div>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              handleShare();
+            }}>
+              <div className="space-y-4 py-4 w-full">
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password (optional)</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      setPasswordError("");
+                    }}
+                    placeholder="Add protection"
+                    minLength={4}
+                  />
+                  {passwordError && (
+                    <p className="text-sm text-red-500">{passwordError}</p>
+                  )}
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="expiry">Expiry in minutes (optional)</Label>
-              <Input
-                id="expiry"
-                type="number"
-                value={expiryMinutes}
-                onChange={(e) => setExpiryMinutes(e.target.value)}
-                placeholder="e.g. 60"
-              />
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="expiry">Expiry in minutes (optional)</Label>
+                  <Input
+                    id="expiry"
+                    type="number"
+                    min="1"
+                    value={expiryMinutes}
+                    onChange={(e) => setExpiryMinutes(e.target.value)}
+                    placeholder="e.g. 60"
+                  />
+                </div>
 
-            <Button onClick={handleShare} className="w-full">
-              <Link2 className="mr-2 h-4 w-4" />
-              Generate Link
-            </Button>
-          </div>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={isSubmitting}
+                >
+                  <Link2 className="mr-2 h-4 w-4" />
+                  Generate Link
+                </Button>
+              </div>
+            </form>
 
-          {shareLink && (
-            <>
-              <div className="border-t pt-4 w-full">
-                <Card className="w-full">
-                  <CardContent className="p-4 space-y-4 w-full">
-                    <div className="flex items-start gap-2 w-full">
-                      <div className="flex-1 bg-muted p-2 rounded-md overflow-hidden min-w-0 max-w-full">
-                        <p className="text-sm font-mono break-all whitespace-pre-wrap">{shareLink}</p>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          navigator.clipboard.writeText(shareLink);
-                          toast.success("Link copied to clipboard");
-                        }}
-                        className="flex-shrink-0 mt-0"
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    </div>
+            {shareLink && (
+              <>
+                <div className="border-t pt-4 w-full">
+                  <Card className="w-full">
+                    <CardContent className="p-4 space-y-4 w-full">
 
                     <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
-                      {password && (
-                        <Badge variant="outline" className="gap-1">
-                          <Lock className="h-3 w-3" />
-                          Protected
-                        </Badge>
-                      )}
-                      {expiryMinutes && (
-                        <Badge variant="outline" className="gap-1">
-                          <Clock className="h-3 w-3" />
-                          Expires in {expiryMinutes} mins
-                        </Badge>
-                      )}
+                        {password && (
+                          <Badge variant="outline" className="gap-1">
+                            <Lock className="h-3 w-3" />
+                            Protected
+                          </Badge>
+                        )}
+                        {expiryMinutes && (
+                          <Badge variant="outline" className="gap-1">
+                            <Clock className="h-3 w-3" />
+                            Expires in {expiryMinutes} mins
+                          </Badge>
+                        )}
                     </div>
-
-                    {qrCodeUrl && (
-                      <div className="mt-4 flex justify-center w-full">
-                        <img
-                          src={qrCodeUrl}
-                          alt="QR Code"
-                          className="w-32 h-32 border rounded-lg"
-                        />
+                      <div className="flex items-start gap-2 w-full">
+                        <div className="flex-1 bg-muted p-2 rounded-md overflow-hidden min-w-0 max-w-full">
+                          <p className="text-sm font-mono break-all whitespace-pre-wrap">{shareLink}</p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            navigator.clipboard.writeText(shareLink);
+                            toast.success("Link copied to clipboard");
+                          }}
+                          className="flex-shrink-0 mt-0"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-              <DialogFooter className="w-full">
-                <Button
-                  variant="secondary"
-                  onClick={() => setShowShareDialog(false)}
-                  className="w-full"
-                >
-                  Close
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+
+
+                      {qrCodeUrl && (
+                        <div className="mt-4 flex justify-center w-full">
+                          <img
+                            src={qrCodeUrl}
+                            alt="QR Code"
+                            className="w-32 h-32 border rounded-lg"
+                          />
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+                <DialogFooter className="w-full">
+                  <Button
+                    variant="secondary"
+                    onClick={() => setShowShareDialog(false)}
+                    className="w-full"
+                  >
+                    Close
+                  </Button>
+                </DialogFooter>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

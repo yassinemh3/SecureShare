@@ -71,8 +71,7 @@ const Home: React.FC<HomeProps> = ({ onLogout, token }) => {
     }
   };
 
-    useEffect(() => {
-      const fetchSharedLinks = async () => {
+    const fetchSharedLinks = async () => {
         try {
           const res = await fetch('http://localhost:8080/api/v1/share', {
             headers: { Authorization: `Bearer ${token}` }
@@ -85,8 +84,9 @@ const Home: React.FC<HomeProps> = ({ onLogout, token }) => {
           console.error("Failed to fetch shared links:", error);
           setSharedLinks([]); // Reset to empty array on error
         }
-      };
+    };
 
+    useEffect(() => {
       fetchSharedLinks();
     }, [token]);
 
@@ -152,9 +152,66 @@ const Home: React.FC<HomeProps> = ({ onLogout, token }) => {
     fetchUserInfo();
   }, []);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSelectedFile(e.target.files?.[0] || null);
-  };
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setSelectedFile(e.target.files?.[0] || null);
+    };
+const handleAccessFile = async () => {
+  setIsLoading(true);
+  setError('');
+  try {
+    const params = new URLSearchParams();
+    if (password) params.append('password', password);
+
+    // First check if password is required but not provided
+    if (fileInfo?.hasPassword && !password) {
+      setError('Password is required for this file');
+      setIsLoading(false);
+      return;
+    }
+
+    const res = await fetch(
+      `http://localhost:8080/api/v1/share/access/${token}?${params.toString()}`
+    );
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      if (res.status === 403) {
+        setError('Invalid password or access denied');
+      } else if (res.status === 401) {
+        setError('Password is required for this file');
+      } else {
+        setError(errorText || 'Failed to access file');
+      }
+      return;
+    }
+
+    // Handle successful download...
+    const blob = await res.blob();
+    const contentDisposition = res.headers.get('Content-Disposition');
+    let filename = 'downloaded_file';
+
+    if (contentDisposition) {
+      const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+      if (filenameMatch && filenameMatch[1]) {
+        filename = filenameMatch[1].replace(/['"]/g, '');
+      }
+    }
+
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = decodeURIComponent(filename);
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    a.remove();
+
+  } catch (err) {
+    setError((err as Error).message);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
     const handleUpload = async (zkeOptions?: { useZKE: boolean; passphrase: string }) => {
       if (!selectedFile) {
@@ -204,10 +261,14 @@ const Home: React.FC<HomeProps> = ({ onLogout, token }) => {
             setFileContents(prev => ({
               ...prev,
               [newestFile.id]: fileContent
-            }));
-          }
+            }));}
         } else {
-          setMessage(`Upload failed: ${responseData.message || 'Unknown error'}`);
+              // Handle validation errors from backend
+              if (res.status === 400 && responseData.error) {
+                setMessage(responseData.error);
+        } else {
+              setMessage(`Upload failed: ${responseData.message || 'Unknown error'}`);
+        }
         }
       } catch (err) {
         setMessage('Upload error: ' + (err as Error).message);
@@ -284,95 +345,96 @@ const Home: React.FC<HomeProps> = ({ onLogout, token }) => {
     }
   };
 
-const handleDelete = async (fileId: number) => {
-    try {
-      const res = await fetch(`http://localhost:8080/api/v1/files/${fileId}`, {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include'
-      });
+    const handleDelete = async (fileId: number) => {
+        try {
+          const res = await fetch(`http://localhost:8080/api/v1/files/${fileId}`, {
+            method: 'DELETE',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            credentials: 'include'
+          });
 
-      if (res.status === 403) {
-        const errorData = await res.json();
-        setMessage(errorData.message || 'You are not authorized to delete this file.');
-        return;
-      }
+          if (res.status === 403) {
+            const errorData = await res.json();
+            setMessage(errorData.message || 'You are not authorized to delete this file.');
+            return;
+          }
 
-      if (res.status === 404) {
-        setMessage('File not found');
-        return;
-      }
+          if (res.status === 404) {
+            setMessage('File not found');
+            return;
+          }
 
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
-      }
+          if (!res.ok) {
+            throw new Error(`HTTP error! status: ${res.status}`);
+          }
 
-      setMessage('File deleted successfully.');
-        // Refresh both files and shared links
-      await Promise.all([
-          fetchFiles(),
-          fetchSharedLinks()
-      ]);
+          setMessage('File deleted successfully.');
 
-    } catch (error) {
-      if (error instanceof Error) {
-        if (error.message.includes('Unauthorized deletion attempt')) {
-          setMessage('You are not authorized to delete this file.');
-        } else {
-          setMessage('Error deleting file: ' + error.message);
-        }
-      } else {
-        setMessage('An unknown error occurred');
-      }
-    }
-};
+          // Refresh both files and shared links
+          await fetchFiles();
+          await fetchSharedLinks();
 
-    const handleShare = async (fileId: number, data: { password?: string; expiryMinutes?: number }): Promise<string> => {
-      try {
-        const params = new URLSearchParams();
-        if (data.password) params.append('password', data.password);
-        if (data.expiryMinutes) params.append('expiryMinutes', data.expiryMinutes.toString());
-
-        const res = await fetch(`http://localhost:8080/api/v1/share/${fileId}?${params.toString()}`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` }
-        });
-
-        if (!res.ok) {
-          const errorText = await res.text();
-          throw new Error(errorText || 'Failed to generate share link');
-        }
-
-        const shareUrl = await res.text();
-        const file = files.find(f => f.id === fileId);
-
-        // Safely update sharedLinks
-        setSharedLinks(prev => {
-          const currentLinks = Array.isArray(prev) ? prev : [];
-          return [
-            ...currentLinks,
-            {
-              id: Date.now().toString(),
-              fileId,
-              filename: file?.originalFilename || '',
-              url: shareUrl,
-              expiresAt: data.expiryMinutes
-                ? new Date(Date.now() + data.expiryMinutes * 60000).toISOString()
-                : undefined,
-              hasPassword: !!data.password
+        } catch (error) {
+          if (error instanceof Error) {
+            if (error.message.includes('Unauthorized deletion attempt')) {
+              setMessage('You are not authorized to delete this file.');
+            } else {
+              setMessage('Error deleting file: ' + error.message);
             }
-          ];
-        });
-
-        return shareUrl;
-      } catch (error) {
-        setMessage('Error generating share link: ' + (error as Error).message);
-        throw error;
-      }
+          } else {
+            setMessage('An unknown error occurred');
+          }
+        }
     };
+
+   const handleShare = async (fileId: number, data: { password?: string; expiryMinutes?: number }): Promise<string> => {
+       try {
+           const params = new URLSearchParams();
+           if (data.password) params.append('password', data.password);
+           if (data.expiryMinutes) params.append('expiryMinutes', data.expiryMinutes.toString());
+
+           const res = await fetch(`http://localhost:8080/api/v1/share/${fileId}?${params.toString()}`, {
+               method: 'POST',
+               headers: { Authorization: `Bearer ${token}` }
+           });
+
+           if (!res.ok) {
+               const errorText = await res.text();
+               throw new Error(errorText || 'Failed to generate share link');
+           }
+
+           const response = await res.json() as {
+               token: string;
+               expiry: string;
+               hasPassword: boolean;
+               shareUrl: string;
+               qrCodeUrl: string;
+           };
+
+           const file = files.find(f => f.id === fileId);
+
+           setSharedLinks(prev => [
+               ...prev,
+               {
+                   id: response.token,
+                   fileId,
+                   filename: file?.originalFilename || '',
+                   url: response.shareUrl,
+                   qrCodeUrl: response.qrCodeUrl,
+                   expiresAt: response.expiry,
+                   hasPassword: response.hasPassword
+               }
+           ]);
+
+           return response.shareUrl;
+       } catch (error) {
+           setMessage('Error generating share link: ' + (error as Error).message);
+           throw error;
+       }
+   };
 
  return (
     <div className="min-h-screen bg-gray-50">
@@ -402,10 +464,12 @@ const handleDelete = async (fileId: number) => {
             onUpload={handleUpload}
             selectedFile={selectedFile}
           />
-          <StatusMessage
-            message={message}
-            type={message.includes('success') || message.includes('deleted') ? 'success' : 'error'}
-          />
+            {message && (
+              <StatusMessage
+                message={message}
+                type={message.includes('success') ? 'success' : 'error'}
+                className="mb-4"
+              />  )}
         </div>
 
         {/* File and Shared Links Sections - Side by Side */}
